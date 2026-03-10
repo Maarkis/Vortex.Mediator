@@ -4,6 +4,8 @@
     <RootNamespace>Vortex.Mediator</RootNamespace>
     <PackageId>Vortex.Mediator</PackageId>
     <Description>Source-generated mediator runtime for Vortex.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <IsPackable>true</IsPackable>
     <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
@@ -19,6 +21,9 @@
     <None Include="../Vortex.Mediator.SourceGenerator/bin/$(Configuration)/netstandard2.0/Vortex.Mediator.SourceGenerator.dll"
           Pack="true"
           PackagePath="analyzers/dotnet/cs" />
+    <None Include="../../README.md"
+          Pack="true"
+          PackagePath="\" />
   </ItemGroup>
 
   <Target Name="BuildMediatorSourceGenerator" BeforeTargets="CoreCompile;Pack">
