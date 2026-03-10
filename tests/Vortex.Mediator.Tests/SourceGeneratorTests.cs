@@ -134,6 +134,162 @@ public sealed class PingNotificationHandler : INotificationHandler<PingNotificat
         Assert.That(diagnostics, Is.Empty, string.Join(Environment.NewLine, diagnostics));
     }
 
+    [Test]
+    public void GeneratorSupportsStaticRequestHandlersWithInjectedServices()
+    {
+        var source = """
+using Vortex.Mediator.Abstractions;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace Demo;
+
+public sealed record PingQuery(string Value) : IRequest<string>;
+
+public sealed class QueryDependency;
+
+public static class PingEndpoint
+{
+    public static Task<string> Handle(PingQuery request, QueryDependency dependency, CancellationToken cancellationToken)
+        => Task.FromResult(request.Value);
+}
+""";
+
+        var generated = GenerateSource(source);
+
+        Assert.That(generated, Does.Contain("GetRequiredService<global::Demo.QueryDependency>(provider)"));
+    }
+
+    [Test]
+    public void GeneratorSupportsStaticNotificationHandlers()
+    {
+        var source = """
+using Vortex.Mediator.Abstractions;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace Demo;
+
+public sealed record PingNotification(string Value) : INotification;
+
+public sealed class NotificationDependency;
+
+public static class PingEndpoint
+{
+    public static Task Handle(PingNotification notification, NotificationDependency dependency, CancellationToken cancellationToken)
+        => Task.CompletedTask;
+}
+""";
+
+        var generated = GenerateSource(source);
+
+        Assert.That(generated, Does.Contain("MethodNotificationHandler"));
+    }
+
+    [Test]
+    public void GeneratorSupportsStaticCommandHandlersWithInjectedServices()
+    {
+        var source = """
+using Vortex.Mediator.Abstractions;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace Demo;
+
+public sealed record PingCommand(string Value) : IRequest;
+
+public sealed class CommandDependency;
+
+public static class PingEndpoint
+{
+    public static Task Handle(PingCommand command, CommandDependency dependency, CancellationToken cancellationToken)
+        => Task.CompletedTask;
+}
+""";
+
+        var generated = GenerateSource(source);
+
+        Assert.That(generated, Does.Contain("MethodCommandHandler"));
+    }
+
+    [Test]
+    public void GeneratorSupportsStaticStreamHandlersWithInjectedServices()
+    {
+        var source = """
+using Vortex.Mediator.Abstractions;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace Demo;
+
+public sealed record PingStream(int Count) : IStreamRequest<int>;
+
+public sealed class StreamDependency;
+
+public static class PingEndpoint
+{
+    public static async IAsyncEnumerable<int> Handle(PingStream request, StreamDependency dependency, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        yield return request.Count;
+        await Task.Yield();
+    }
+}
+""";
+
+        var generated = GenerateSource(source);
+
+        Assert.That(generated, Does.Contain("MethodStreamHandler"));
+    }
+
+    [Test]
+    public void GeneratorSupportsInstanceRequestHandlers()
+    {
+        var source = """
+using Vortex.Mediator.Abstractions;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace Demo;
+
+public sealed record PingQuery(string Value) : IRequest<string>;
+
+public sealed class QueryEndpoint
+{
+    public Task<string> Handle(PingQuery request, CancellationToken cancellationToken)
+        => Task.FromResult(request.Value);
+}
+""";
+
+        var generated = GenerateSource(source);
+
+        Assert.That(generated, Does.Contain("GetOrCreateInstance<global::Demo.QueryEndpoint>(provider)"));
+    }
+
+    [Test]
+    public void GeneratorSupportsInstanceNotificationHandlers()
+    {
+        var source = """
+using Vortex.Mediator.Abstractions;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace Demo;
+
+public sealed record PingNotification(string Value) : INotification;
+
+public sealed class NotificationEndpoint
+{
+    public Task Handle(PingNotification notification, CancellationToken cancellationToken)
+        => Task.CompletedTask;
+}
+""";
+
+        var generated = GenerateSource(source);
+
+        Assert.That(generated, Does.Contain("GetOrCreateInstance<global::Demo.NotificationEndpoint>(provider)"));
+    }
+
     private static string GenerateSource(string source)
     {
         _ = RunGenerator(source, out var generated);

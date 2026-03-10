@@ -15,6 +15,20 @@ public sealed class MediatorGenerator : IIncrementalGenerator
     private const string RequestWithResponseMetadataName = "Vortex.Mediator.Abstractions.IRequest`1";
     private const string StreamRequestMetadataName = "Vortex.Mediator.Abstractions.IStreamRequest`1";
     private const string NotificationMetadataName = "Vortex.Mediator.Abstractions.INotification";
+    private const string RequestHandlerMetadataName = "Vortex.Mediator.Abstractions.IRequestHandler`2";
+    private const string CommandHandlerMetadataName = "Vortex.Mediator.Abstractions.IRequestHandler`1";
+    private const string StreamHandlerMetadataName = "Vortex.Mediator.Abstractions.IStreamRequestHandler`2";
+    private const string NotificationHandlerMetadataName = "Vortex.Mediator.Abstractions.INotificationHandler`1";
+    private const string RequestPipelineBehaviorMetadataName = "Vortex.Mediator.Abstractions.IPipelineBehavior`2";
+    private const string CommandPipelineBehaviorMetadataName = "Vortex.Mediator.Abstractions.IPipelineBehavior`1";
+    private const string StreamPipelineBehaviorMetadataName = "Vortex.Mediator.Abstractions.IStreamPipelineBehavior`2";
+    private const string TaskMetadataName = "System.Threading.Tasks.Task";
+    private const string TaskOfTMetadataName = "System.Threading.Tasks.Task`1";
+    private const string AsyncEnumerableMetadataName = "System.Collections.Generic.IAsyncEnumerable`1";
+    private const string CancellationTokenMetadataName = "System.Threading.CancellationToken";
+    private const string RequestHandlerDelegateMetadataName = "Vortex.Mediator.Abstractions.RequestHandlerDelegate";
+    private const string RequestHandlerDelegateOfTMetadataName = "Vortex.Mediator.Abstractions.RequestHandlerDelegate`1";
+    private const string StreamHandlerDelegateMetadataName = "Vortex.Mediator.Abstractions.StreamHandlerDelegate`1";
 
     private static readonly SymbolDisplayFormat TypeDisplayFormat = new(
         globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
@@ -45,11 +59,31 @@ public sealed class MediatorGenerator : IIncrementalGenerator
         var requestWithResponseInterface = compilation.GetTypeByMetadataName(RequestWithResponseMetadataName);
         var streamRequestInterface = compilation.GetTypeByMetadataName(StreamRequestMetadataName);
         var notificationInterface = compilation.GetTypeByMetadataName(NotificationMetadataName);
+        var taskType = compilation.GetTypeByMetadataName(TaskMetadataName);
+        var taskOfTType = compilation.GetTypeByMetadataName(TaskOfTMetadataName);
+        var asyncEnumerableType = compilation.GetTypeByMetadataName(AsyncEnumerableMetadataName);
+        var requestHandlerInterface = compilation.GetTypeByMetadataName(RequestHandlerMetadataName);
+        var commandHandlerInterface = compilation.GetTypeByMetadataName(CommandHandlerMetadataName);
+        var streamHandlerInterface = compilation.GetTypeByMetadataName(StreamHandlerMetadataName);
+        var notificationHandlerInterface = compilation.GetTypeByMetadataName(NotificationHandlerMetadataName);
+        var requestPipelineBehaviorInterface = compilation.GetTypeByMetadataName(RequestPipelineBehaviorMetadataName);
+        var commandPipelineBehaviorInterface = compilation.GetTypeByMetadataName(CommandPipelineBehaviorMetadataName);
+        var streamPipelineBehaviorInterface = compilation.GetTypeByMetadataName(StreamPipelineBehaviorMetadataName);
 
         if (requestInterface is null ||
             requestWithResponseInterface is null ||
             streamRequestInterface is null ||
-            notificationInterface is null)
+            notificationInterface is null ||
+            taskType is null ||
+            taskOfTType is null ||
+            asyncEnumerableType is null ||
+            requestHandlerInterface is null ||
+            commandHandlerInterface is null ||
+            streamHandlerInterface is null ||
+            notificationHandlerInterface is null ||
+            requestPipelineBehaviorInterface is null ||
+            commandPipelineBehaviorInterface is null ||
+            streamPipelineBehaviorInterface is null)
         {
             return new GenerationModel(
                 ImmutableArray<RequestModel>.Empty,
@@ -93,17 +127,59 @@ public sealed class MediatorGenerator : IIncrementalGenerator
             {
                 notifications.Add(notification);
             }
+
+            foreach (var method in type.GetMembers("Handle").OfType<IMethodSymbol>())
+            {
+                var requestMethod = TryCreateRequestMethodModel(
+                    method,
+                    requestWithResponseInterface,
+                    requestHandlerInterface,
+                    requestPipelineBehaviorInterface,
+                    taskOfTType);
+                if (requestMethod is not null)
+                {
+                    requests.Add(requestMethod);
+                }
+
+                var commandMethod = TryCreateCommandMethodModel(
+                    method,
+                    requestInterface,
+                    commandHandlerInterface,
+                    commandPipelineBehaviorInterface,
+                    taskType);
+                if (commandMethod is not null)
+                {
+                    commands.Add(commandMethod);
+                }
+
+                var streamMethod = TryCreateStreamMethodModel(
+                    method,
+                    streamRequestInterface,
+                    streamHandlerInterface,
+                    streamPipelineBehaviorInterface,
+                    asyncEnumerableType);
+                if (streamMethod is not null)
+                {
+                    streams.Add(streamMethod);
+                }
+
+                var notificationMethod = TryCreateNotificationMethodModel(
+                    method,
+                    notificationInterface,
+                    notificationHandlerInterface,
+                    taskType);
+                if (notificationMethod is not null)
+                {
+                    notifications.Add(notificationMethod);
+                }
+            }
         }
 
         return new GenerationModel(
-            requests.ToImmutable().Sort(static (left, right) =>
-                StringComparer.Ordinal.Compare(left.RequestType, right.RequestType)),
-            commands.ToImmutable().Sort(static (left, right) =>
-                StringComparer.Ordinal.Compare(left.RequestType, right.RequestType)),
-            streams.ToImmutable().Sort(static (left, right) =>
-                StringComparer.Ordinal.Compare(left.RequestType, right.RequestType)),
-            notifications.ToImmutable().Sort(static (left, right) =>
-                StringComparer.Ordinal.Compare(left.NotificationType, right.NotificationType)));
+            MergeRequests(requests.ToImmutable()),
+            MergeCommands(commands.ToImmutable()),
+            MergeStreams(streams.ToImmutable()),
+            MergeNotifications(notifications.ToImmutable()));
     }
 
     private static RequestModel? TryCreateRequestModel(INamedTypeSymbol type, INamedTypeSymbol requestInterface)
@@ -168,6 +244,321 @@ public sealed class MediatorGenerator : IIncrementalGenerator
         return null;
     }
 
+    private static RequestModel? TryCreateRequestMethodModel(
+        IMethodSymbol method,
+        INamedTypeSymbol requestInterface,
+        INamedTypeSymbol requestHandlerInterface,
+        INamedTypeSymbol requestPipelineBehaviorInterface,
+        INamedTypeSymbol taskOfTType)
+    {
+        if (!IsSupportedHandleMethod(method) ||
+            ImplementsOpenGeneric(method.ContainingType, requestHandlerInterface) ||
+            ImplementsOpenGeneric(method.ContainingType, requestPipelineBehaviorInterface) ||
+            method.Parameters.Length == 0 ||
+            method.ReturnType is not INamedTypeSymbol returnType ||
+            !SymbolEqualityComparer.Default.Equals(returnType.OriginalDefinition, taskOfTType) ||
+            method.Parameters[0].Type is not INamedTypeSymbol requestType)
+        {
+            return null;
+        }
+
+        foreach (var candidate in requestType.AllInterfaces)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(candidate.OriginalDefinition, requestInterface) ||
+                !SymbolEqualityComparer.Default.Equals(candidate.TypeArguments[0], returnType.TypeArguments[0]))
+            {
+                continue;
+            }
+
+            return new RequestModel(
+                GetDisplayName(requestType),
+                GetDisplayName(returnType.TypeArguments[0]),
+                GetDisplayName(method.ContainingType),
+                GetDisplayName(method.ReturnType),
+                GetHandlerParameters(method),
+                GetGeneratedTypeName("MethodRequestHandler", method.ContainingType, requestType),
+                method.IsStatic);
+        }
+
+        return null;
+    }
+
+    private static CommandModel? TryCreateCommandMethodModel(
+        IMethodSymbol method,
+        INamedTypeSymbol requestInterface,
+        INamedTypeSymbol commandHandlerInterface,
+        INamedTypeSymbol commandPipelineBehaviorInterface,
+        INamedTypeSymbol taskType)
+    {
+        if (!IsSupportedHandleMethod(method) ||
+            ImplementsOpenGeneric(method.ContainingType, commandHandlerInterface) ||
+            ImplementsOpenGeneric(method.ContainingType, commandPipelineBehaviorInterface) ||
+            method.Parameters.Length == 0 ||
+            !SymbolEqualityComparer.Default.Equals(method.ReturnType, taskType) ||
+            method.Parameters[0].Type is not INamedTypeSymbol requestType)
+        {
+            return null;
+        }
+
+        foreach (var candidate in requestType.AllInterfaces)
+        {
+            if (SymbolEqualityComparer.Default.Equals(candidate, requestInterface))
+            {
+                return new CommandModel(
+                    GetDisplayName(requestType),
+                    GetDisplayName(method.ContainingType),
+                    GetDisplayName(method.ReturnType),
+                    GetHandlerParameters(method),
+                    GetGeneratedTypeName("MethodCommandHandler", method.ContainingType, requestType),
+                    method.IsStatic);
+            }
+        }
+
+        return null;
+    }
+
+    private static StreamRequestModel? TryCreateStreamMethodModel(IMethodSymbol method,
+        INamedTypeSymbol streamRequestInterface,
+        INamedTypeSymbol streamHandlerInterface,
+        INamedTypeSymbol streamPipelineBehaviorInterface,
+        INamedTypeSymbol asyncEnumerableType)
+    {
+        if (!IsSupportedHandleMethod(method) ||
+            ImplementsOpenGeneric(method.ContainingType, streamHandlerInterface) ||
+            ImplementsOpenGeneric(method.ContainingType, streamPipelineBehaviorInterface) ||
+            method.Parameters.Length == 0 ||
+            method.ReturnType is not INamedTypeSymbol returnType ||
+            !SymbolEqualityComparer.Default.Equals(returnType.OriginalDefinition, asyncEnumerableType) ||
+            method.Parameters[0].Type is not INamedTypeSymbol requestType)
+        {
+            return null;
+        }
+
+        foreach (var candidate in requestType.AllInterfaces)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(candidate.OriginalDefinition, streamRequestInterface) ||
+                !SymbolEqualityComparer.Default.Equals(candidate.TypeArguments[0], returnType.TypeArguments[0]))
+            {
+                continue;
+            }
+
+            return new StreamRequestModel(
+                GetDisplayName(requestType),
+                GetDisplayName(returnType.TypeArguments[0]),
+                GetDisplayName(method.ContainingType),
+                GetDisplayName(method.ReturnType),
+                GetHandlerParameters(method),
+                GetGeneratedTypeName("MethodStreamHandler", method.ContainingType, requestType),
+                method.IsStatic);
+        }
+
+        return null;
+    }
+
+    private static NotificationModel? TryCreateNotificationMethodModel(IMethodSymbol method,
+        INamedTypeSymbol notificationInterface,
+        INamedTypeSymbol notificationHandlerInterface,
+        INamedTypeSymbol taskType)
+    {
+        if (!IsSupportedHandleMethod(method) ||
+            ImplementsOpenGeneric(method.ContainingType, notificationHandlerInterface) ||
+            method.Parameters.Length == 0 ||
+            !SymbolEqualityComparer.Default.Equals(method.ReturnType, taskType) ||
+            method.Parameters[0].Type is not INamedTypeSymbol notificationType)
+        {
+            return null;
+        }
+
+        foreach (var candidate in notificationType.AllInterfaces)
+        {
+            if (SymbolEqualityComparer.Default.Equals(candidate, notificationInterface))
+            {
+                return new NotificationModel(
+                    GetDisplayName(notificationType),
+                    ImmutableArray.Create(new MethodHandlerModel(
+                        GetDisplayName(method.ContainingType),
+                        GetDisplayName(method.ReturnType),
+                        GetHandlerParameters(method),
+                        GetGeneratedTypeName("MethodNotificationHandler", method.ContainingType, notificationType),
+                        method.IsStatic)));
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsSupportedHandleMethod(IMethodSymbol method)
+    {
+        return method is
+        {
+            MethodKind: MethodKind.Ordinary,
+            IsGenericMethod: false
+        } &&
+        method.DeclaredAccessibility == Accessibility.Public &&
+        method.ContainingType is { TypeKind: TypeKind.Class, IsAbstract: false, IsGenericType: false } &&
+        !HasPipelineDelegateParameter(method) &&
+        IsAccessibleFromGeneratedCode(method.ContainingType);
+    }
+
+    private static bool IsAccessibleFromGeneratedCode(INamedTypeSymbol type)
+    {
+        for (var current = type; current is not null; current = current.ContainingType)
+        {
+            if (current.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Internal))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool ImplementsOpenGeneric(INamedTypeSymbol type, INamedTypeSymbol openGenericInterface)
+    {
+        foreach (var candidate in type.AllInterfaces)
+        {
+            if (SymbolEqualityComparer.Default.Equals(candidate.OriginalDefinition, openGenericInterface) ||
+                SymbolEqualityComparer.Default.Equals(candidate, openGenericInterface))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasPipelineDelegateParameter(IMethodSymbol method)
+    {
+        foreach (var parameter in method.Parameters)
+        {
+            var metadataName = parameter.Type switch
+            {
+                INamedTypeSymbol namedType when namedType.IsGenericType => namedType.OriginalDefinition.ToDisplayString(),
+                _ => parameter.Type.ToDisplayString()
+            };
+
+            if (metadataName is RequestHandlerDelegateMetadataName or
+                RequestHandlerDelegateOfTMetadataName or
+                StreamHandlerDelegateMetadataName)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static ImmutableArray<HandlerParameterModel> GetHandlerParameters(IMethodSymbol method)
+    {
+        if (method.Parameters.Length <= 1)
+        {
+            return ImmutableArray<HandlerParameterModel>.Empty;
+        }
+
+        var builder = ImmutableArray.CreateBuilder<HandlerParameterModel>(method.Parameters.Length - 1);
+
+        for (var index = 1; index < method.Parameters.Length; index++)
+        {
+            var parameter = method.Parameters[index];
+            builder.Add(new HandlerParameterModel(
+                GetDisplayName(parameter.Type),
+                parameter.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ==
+                $"global::{CancellationTokenMetadataName}"
+                    ? HandlerParameterKind.CancellationToken
+                    : HandlerParameterKind.Service));
+        }
+
+        return builder.MoveToImmutable();
+    }
+
+    private static string GetGeneratedTypeName(string prefix, INamedTypeSymbol handlerType, INamedTypeSymbol messageType)
+    {
+        var name = (handlerType.ToDisplayString(TypeDisplayFormat) + "_" +
+                    messageType.ToDisplayString(TypeDisplayFormat))
+            .Replace('.', '_')
+            .Replace(':', '_')
+            .Replace('<', '_')
+            .Replace('>', '_')
+            .Replace(',', '_')
+            .Replace('?', '_')
+            .Replace(' ', '_');
+
+        return $"{prefix}_{name}";
+    }
+
+    private static ImmutableArray<RequestModel> MergeRequests(ImmutableArray<RequestModel> requests)
+    {
+        var map = new Dictionary<string, RequestModel>(StringComparer.Ordinal);
+
+        foreach (var request in requests)
+        {
+            if (!map.TryGetValue(request.RequestType, out var existing) || Prefer(request, existing))
+            {
+                map[request.RequestType] = request;
+            }
+        }
+
+        return map.Values.ToImmutableArray().Sort(static (left, right) =>
+            StringComparer.Ordinal.Compare(left.RequestType, right.RequestType));
+    }
+
+    private static ImmutableArray<CommandModel> MergeCommands(ImmutableArray<CommandModel> commands)
+    {
+        var map = new Dictionary<string, CommandModel>(StringComparer.Ordinal);
+
+        foreach (var command in commands)
+        {
+            if (!map.TryGetValue(command.RequestType, out var existing) || Prefer(command, existing))
+            {
+                map[command.RequestType] = command;
+            }
+        }
+
+        return map.Values.ToImmutableArray().Sort(static (left, right) =>
+            StringComparer.Ordinal.Compare(left.RequestType, right.RequestType));
+    }
+
+    private static ImmutableArray<StreamRequestModel> MergeStreams(ImmutableArray<StreamRequestModel> streams)
+    {
+        var map = new Dictionary<string, StreamRequestModel>(StringComparer.Ordinal);
+
+        foreach (var stream in streams)
+        {
+            if (!map.TryGetValue(stream.RequestType, out var existing) || Prefer(stream, existing))
+            {
+                map[stream.RequestType] = stream;
+            }
+        }
+
+        return map.Values.ToImmutableArray().Sort(static (left, right) =>
+            StringComparer.Ordinal.Compare(left.RequestType, right.RequestType));
+    }
+
+    private static ImmutableArray<NotificationModel> MergeNotifications(ImmutableArray<NotificationModel> notifications)
+    {
+        var map = new Dictionary<string, NotificationModel>(StringComparer.Ordinal);
+
+        foreach (var notification in notifications)
+        {
+            if (!map.TryGetValue(notification.NotificationType, out var existing))
+            {
+                map[notification.NotificationType] = notification;
+                continue;
+            }
+
+            map[notification.NotificationType] = existing.Append(notification.MethodHandlers);
+        }
+
+        return map.Values.ToImmutableArray().Sort(static (left, right) =>
+            StringComparer.Ordinal.Compare(left.NotificationType, right.NotificationType));
+    }
+
+    private static bool Prefer(RequestModel candidate, RequestModel existing) => candidate.IsMethodHandler && !existing.IsMethodHandler;
+
+    private static bool Prefer(CommandModel candidate, CommandModel existing) => candidate.IsMethodHandler && !existing.IsMethodHandler;
+
+    private static bool Prefer(StreamRequestModel candidate, StreamRequestModel existing) => candidate.IsMethodHandler && !existing.IsMethodHandler;
+
     private static IEnumerable<INamedTypeSymbol> EnumerateTypes(INamespaceSymbol @namespace)
     {
         foreach (var type in @namespace.GetTypeMembers())
@@ -214,6 +605,7 @@ public sealed class MediatorGenerator : IIncrementalGenerator
         builder.AppendLine("using System.Linq;");
         builder.AppendLine("using System.Threading;");
         builder.AppendLine("using System.Threading.Tasks;");
+        builder.AppendLine("using Microsoft.Extensions.DependencyInjection;");
         builder.AppendLine("using Vortex.Mediator;");
         builder.AppendLine("using Vortex.Mediator.Abstractions;");
         builder.AppendLine();
@@ -233,6 +625,8 @@ public sealed class MediatorGenerator : IIncrementalGenerator
         RenderNotificationDispatch(builder, model.Notifications);
         builder.AppendLine();
         RenderPipelineHelpers(builder);
+        builder.AppendLine();
+        RenderMethodAdapters(builder, model);
         builder.AppendLine();
         RenderResolverHelpers(builder);
         builder.AppendLine("}");
@@ -278,11 +672,19 @@ public sealed class MediatorGenerator : IIncrementalGenerator
             builder.AppendLine("        IServiceProvider provider,");
             builder.AppendLine("        CancellationToken cancellationToken)");
             builder.AppendLine("    {");
-            builder.Append("        var handler = GetRequiredService<IRequestHandler<")
-                .Append(request.RequestType)
-                .Append(", ")
-                .Append(request.ResponseType)
-                .AppendLine(">>(provider);");
+            if (request.IsMethodHandler)
+            {
+                builder.Append("        var handler = new ").Append(request.GeneratedHandlerTypeName)
+                    .AppendLine("(provider);");
+            }
+            else
+            {
+                builder.Append("        var handler = GetRequiredService<IRequestHandler<")
+                    .Append(request.RequestType)
+                    .Append(", ")
+                    .Append(request.ResponseType)
+                    .AppendLine(">>(provider);");
+            }
             builder.Append("        var behaviors = GetServices<IPipelineBehavior<")
                 .Append(request.RequestType)
                 .Append(", ")
@@ -331,9 +733,17 @@ public sealed class MediatorGenerator : IIncrementalGenerator
             builder.AppendLine("        IServiceProvider provider,");
             builder.AppendLine("        CancellationToken cancellationToken)");
             builder.AppendLine("    {");
-            builder.Append("        var handler = GetRequiredService<IRequestHandler<")
-                .Append(command.RequestType)
-                .AppendLine(">>(provider);");
+            if (command.IsMethodHandler)
+            {
+                builder.Append("        var handler = new ").Append(command.GeneratedHandlerTypeName)
+                    .AppendLine("(provider);");
+            }
+            else
+            {
+                builder.Append("        var handler = GetRequiredService<IRequestHandler<")
+                    .Append(command.RequestType)
+                    .AppendLine(">>(provider);");
+            }
             builder.Append("        var behaviors = GetServices<IPipelineBehavior<")
                 .Append(command.RequestType)
                 .AppendLine(">>(provider);");
@@ -383,11 +793,19 @@ public sealed class MediatorGenerator : IIncrementalGenerator
             builder.AppendLine("        IServiceProvider provider,");
             builder.AppendLine("        CancellationToken cancellationToken)");
             builder.AppendLine("    {");
-            builder.Append("        var handler = GetRequiredService<IStreamRequestHandler<")
-                .Append(stream.RequestType)
-                .Append(", ")
-                .Append(stream.ResponseType)
-                .AppendLine(">>(provider);");
+            if (stream.IsMethodHandler)
+            {
+                builder.Append("        var handler = new ").Append(stream.GeneratedHandlerTypeName)
+                    .AppendLine("(provider);");
+            }
+            else
+            {
+                builder.Append("        var handler = GetRequiredService<IStreamRequestHandler<")
+                    .Append(stream.RequestType)
+                    .Append(", ")
+                    .Append(stream.ResponseType)
+                    .AppendLine(">>(provider);");
+            }
             builder.Append("        var behaviors = GetServices<IStreamPipelineBehavior<")
                 .Append(stream.RequestType)
                 .Append(", ")
@@ -441,26 +859,46 @@ public sealed class MediatorGenerator : IIncrementalGenerator
             builder.Append("        var handlers = GetServices<INotificationHandler<")
                 .Append(notification.NotificationType)
                 .AppendLine(">>(provider);");
-            builder.AppendLine("        return handlers.Count switch");
+            builder.Append("        var staticHandlerCount = ").Append(notification.MethodHandlers.Length).AppendLine(";");
+            builder.AppendLine("        var totalHandlerCount = handlers.Count + staticHandlerCount;");
+            builder.AppendLine("        return totalHandlerCount switch");
             builder.AppendLine("        {");
             builder.AppendLine("            0 => Task.CompletedTask,");
-            builder.AppendLine("            1 => handlers[0].Handle(notification, cancellationToken),");
-            builder.AppendLine("            _ => PublishMany(notification, cancellationToken, handlers)");
+            if (notification.MethodHandlers.Length == 1)
+            {
+                builder.AppendLine("            1 => handlers.Count == 1");
+                builder.AppendLine("                ? handlers[0].Handle(notification, cancellationToken)");
+                builder.Append("                : ").Append(notification.MethodHandlers[0].GeneratedHandlerTypeName)
+                    .AppendLine(".Invoke(notification, provider, cancellationToken),");
+            }
+            else
+            {
+                builder.AppendLine("            1 => handlers[0].Handle(notification, cancellationToken),");
+            }
+            builder.AppendLine("            _ => PublishMany(notification, provider, cancellationToken, handlers)");
             builder.AppendLine("        };");
             builder.AppendLine("    }");
             builder.AppendLine();
             builder.Append("    private static Task PublishMany(").Append(notification.NotificationType)
                 .AppendLine(" notification,");
+            builder.AppendLine("        IServiceProvider provider,");
             builder.AppendLine("        CancellationToken cancellationToken,");
             builder.Append("        IReadOnlyList<INotificationHandler<").Append(notification.NotificationType)
                 .AppendLine(">> handlers)");
             builder.AppendLine("    {");
-            builder.AppendLine("        var tasks = new Task[handlers.Count];");
+            builder.Append("        var tasks = new Task[handlers.Count + ").Append(notification.MethodHandlers.Length)
+                .AppendLine("];");
+            builder.AppendLine("        var index = 0;");
             builder.AppendLine();
-            builder.AppendLine("        for (var index = 0; index < handlers.Count; index++)");
+            builder.AppendLine("        for (var handlerIndex = 0; handlerIndex < handlers.Count; handlerIndex++)");
             builder.AppendLine("        {");
-            builder.AppendLine("            tasks[index] = handlers[index].Handle(notification, cancellationToken);");
+            builder.AppendLine("            tasks[index++] = handlers[handlerIndex].Handle(notification, cancellationToken);");
             builder.AppendLine("        }");
+            foreach (var methodHandler in notification.MethodHandlers)
+            {
+                builder.Append("        tasks[index++] = ").Append(methodHandler.GeneratedHandlerTypeName)
+                    .AppendLine(".Invoke(notification, provider, cancellationToken);");
+            }
             builder.AppendLine();
             builder.AppendLine("        return Task.WhenAll(tasks);");
             builder.AppendLine("    }");
@@ -630,8 +1068,158 @@ public sealed class MediatorGenerator : IIncrementalGenerator
         builder.AppendLine("    }");
     }
 
+    private static void RenderMethodAdapters(StringBuilder builder, GenerationModel model)
+    {
+        foreach (var request in model.Requests.Where(static request => request.IsMethodHandler))
+        {
+            builder.Append("    private sealed class ").Append(request.GeneratedHandlerTypeName)
+                .Append(" : IRequestHandler<").Append(request.RequestType).Append(", ")
+                .Append(request.ResponseType).AppendLine(">");
+            builder.AppendLine("    {");
+            builder.AppendLine("        private readonly IServiceProvider provider;");
+            builder.AppendLine();
+            builder.Append("        public ").Append(request.GeneratedHandlerTypeName)
+                .AppendLine("(IServiceProvider provider)");
+            builder.AppendLine("        {");
+            builder.AppendLine("            this.provider = provider;");
+            builder.AppendLine("        }");
+            builder.AppendLine();
+            builder.Append("        public ").Append(request.ReturnType).Append(" Handle(")
+                .Append(request.RequestType).AppendLine(" request, CancellationToken cancellationToken)");
+            builder.AppendLine("        {");
+            if (request.IsStaticHandler)
+            {
+                builder.Append("            return ").Append(request.HandlerType).Append(".Handle(request");
+            }
+            else
+            {
+                builder.Append("            return GetOrCreateInstance<").Append(request.HandlerType)
+                    .Append(">(provider).Handle(request");
+            }
+            AppendHandlerArguments(builder, request.Parameters);
+            builder.AppendLine(");");
+            builder.AppendLine("        }");
+            builder.AppendLine("    }");
+            builder.AppendLine();
+        }
+
+        foreach (var command in model.Commands.Where(static command => command.IsMethodHandler))
+        {
+            builder.Append("    private sealed class ").Append(command.GeneratedHandlerTypeName)
+                .Append(" : IRequestHandler<").Append(command.RequestType).AppendLine(">");
+            builder.AppendLine("    {");
+            builder.AppendLine("        private readonly IServiceProvider provider;");
+            builder.AppendLine();
+            builder.Append("        public ").Append(command.GeneratedHandlerTypeName)
+                .AppendLine("(IServiceProvider provider)");
+            builder.AppendLine("        {");
+            builder.AppendLine("            this.provider = provider;");
+            builder.AppendLine("        }");
+            builder.AppendLine();
+            builder.Append("        public ").Append(command.ReturnType).Append(" Handle(")
+                .Append(command.RequestType).AppendLine(" request, CancellationToken cancellationToken)");
+            builder.AppendLine("        {");
+            if (command.IsStaticHandler)
+            {
+                builder.Append("            return ").Append(command.HandlerType).Append(".Handle(request");
+            }
+            else
+            {
+                builder.Append("            return GetOrCreateInstance<").Append(command.HandlerType)
+                    .Append(">(provider).Handle(request");
+            }
+            AppendHandlerArguments(builder, command.Parameters);
+            builder.AppendLine(");");
+            builder.AppendLine("        }");
+            builder.AppendLine("    }");
+            builder.AppendLine();
+        }
+
+        foreach (var stream in model.Streams.Where(static stream => stream.IsMethodHandler))
+        {
+            builder.Append("    private sealed class ").Append(stream.GeneratedHandlerTypeName)
+                .Append(" : IStreamRequestHandler<").Append(stream.RequestType).Append(", ")
+                .Append(stream.ResponseType).AppendLine(">");
+            builder.AppendLine("    {");
+            builder.AppendLine("        private readonly IServiceProvider provider;");
+            builder.AppendLine();
+            builder.Append("        public ").Append(stream.GeneratedHandlerTypeName)
+                .AppendLine("(IServiceProvider provider)");
+            builder.AppendLine("        {");
+            builder.AppendLine("            this.provider = provider;");
+            builder.AppendLine("        }");
+            builder.AppendLine();
+            builder.Append("        public ").Append(stream.ReturnType).Append(" Handle(")
+                .Append(stream.RequestType).AppendLine(" request, CancellationToken cancellationToken)");
+            builder.AppendLine("        {");
+            if (stream.IsStaticHandler)
+            {
+                builder.Append("            return ").Append(stream.HandlerType).Append(".Handle(request");
+            }
+            else
+            {
+                builder.Append("            return GetOrCreateInstance<").Append(stream.HandlerType)
+                    .Append(">(provider).Handle(request");
+            }
+            AppendHandlerArguments(builder, stream.Parameters);
+            builder.AppendLine(");");
+            builder.AppendLine("        }");
+            builder.AppendLine("    }");
+            builder.AppendLine();
+        }
+
+        foreach (var notification in model.Notifications)
+        {
+            foreach (var methodHandler in notification.MethodHandlers)
+            {
+                builder.Append("    private static class ").Append(methodHandler.GeneratedHandlerTypeName).AppendLine();
+                builder.AppendLine("    {");
+                builder.Append("        public static ").Append(methodHandler.ReturnType).Append(" Invoke(")
+                    .Append(notification.NotificationType)
+                    .AppendLine(" notification, IServiceProvider provider, CancellationToken cancellationToken)");
+                builder.AppendLine("        {");
+                if (methodHandler.IsStaticHandler)
+                {
+                    builder.Append("            return ").Append(methodHandler.HandlerType).Append(".Handle(notification");
+                }
+                else
+                {
+                    builder.Append("            return GetOrCreateInstance<").Append(methodHandler.HandlerType)
+                        .Append(">(provider).Handle(notification");
+                }
+                AppendHandlerArguments(builder, methodHandler.Parameters);
+                builder.AppendLine(");");
+                builder.AppendLine("        }");
+                builder.AppendLine("    }");
+                builder.AppendLine();
+            }
+        }
+    }
+
+    private static void AppendHandlerArguments(StringBuilder builder, ImmutableArray<HandlerParameterModel> parameters)
+    {
+        foreach (var parameter in parameters)
+        {
+            builder.Append(", ");
+            if (parameter.Kind == HandlerParameterKind.CancellationToken)
+            {
+                builder.Append("cancellationToken");
+                continue;
+            }
+
+            builder.Append("GetRequiredService<").Append(parameter.Type).Append(">(provider)");
+        }
+    }
+
     private static void RenderResolverHelpers(StringBuilder builder)
     {
+        builder.AppendLine("    private static T GetOrCreateInstance<T>(IServiceProvider provider)");
+        builder.AppendLine("        where T : notnull");
+        builder.AppendLine("    {");
+        builder.AppendLine("        var service = provider.GetService(typeof(T));");
+        builder.AppendLine("        return service is T typed ? typed : ActivatorUtilities.CreateInstance<T>(provider);");
+        builder.AppendLine("    }");
+        builder.AppendLine();
         builder.AppendLine("    private static T GetRequiredService<T>(IServiceProvider provider)");
         builder.AppendLine("        where T : notnull");
         builder.AppendLine("    {");
@@ -713,47 +1301,172 @@ public sealed class MediatorGenerator : IIncrementalGenerator
 
     private sealed class RequestModel
     {
-        public RequestModel(string requestType, string responseType)
+        public RequestModel(
+            string requestType,
+            string responseType,
+            string? handlerType = null,
+            string? returnType = null,
+            ImmutableArray<HandlerParameterModel> parameters = default,
+            string? generatedHandlerTypeName = null,
+            bool isStaticHandler = false)
         {
             RequestType = requestType;
             ResponseType = responseType;
+            HandlerType = handlerType;
+            ReturnType = returnType ?? $"Task<{responseType}>";
+            Parameters = parameters.IsDefault ? ImmutableArray<HandlerParameterModel>.Empty : parameters;
+            GeneratedHandlerTypeName = generatedHandlerTypeName ?? string.Empty;
+            IsStaticHandler = isStaticHandler;
         }
 
         public string RequestType { get; }
 
         public string ResponseType { get; }
+
+        public string? HandlerType { get; }
+
+        public string ReturnType { get; }
+
+        public ImmutableArray<HandlerParameterModel> Parameters { get; }
+
+        public string GeneratedHandlerTypeName { get; }
+
+        public bool IsMethodHandler => HandlerType is not null;
+
+        public bool IsStaticHandler { get; }
     }
 
     private sealed class CommandModel
     {
-        public CommandModel(string requestType)
+        public CommandModel(
+            string requestType,
+            string? handlerType = null,
+            string? returnType = null,
+            ImmutableArray<HandlerParameterModel> parameters = default,
+            string? generatedHandlerTypeName = null,
+            bool isStaticHandler = false)
         {
             RequestType = requestType;
+            HandlerType = handlerType;
+            ReturnType = returnType ?? "Task";
+            Parameters = parameters.IsDefault ? ImmutableArray<HandlerParameterModel>.Empty : parameters;
+            GeneratedHandlerTypeName = generatedHandlerTypeName ?? string.Empty;
+            IsStaticHandler = isStaticHandler;
         }
 
         public string RequestType { get; }
+
+        public string? HandlerType { get; }
+
+        public string ReturnType { get; }
+
+        public ImmutableArray<HandlerParameterModel> Parameters { get; }
+
+        public string GeneratedHandlerTypeName { get; }
+
+        public bool IsMethodHandler => HandlerType is not null;
+
+        public bool IsStaticHandler { get; }
     }
 
     private sealed class StreamRequestModel
     {
-        public StreamRequestModel(string requestType, string responseType)
+        public StreamRequestModel(
+            string requestType,
+            string responseType,
+            string? handlerType = null,
+            string? returnType = null,
+            ImmutableArray<HandlerParameterModel> parameters = default,
+            string? generatedHandlerTypeName = null,
+            bool isStaticHandler = false)
         {
             RequestType = requestType;
             ResponseType = responseType;
+            HandlerType = handlerType;
+            ReturnType = returnType ?? $"IAsyncEnumerable<{responseType}>";
+            Parameters = parameters.IsDefault ? ImmutableArray<HandlerParameterModel>.Empty : parameters;
+            GeneratedHandlerTypeName = generatedHandlerTypeName ?? string.Empty;
+            IsStaticHandler = isStaticHandler;
         }
 
         public string RequestType { get; }
 
         public string ResponseType { get; }
+
+        public string? HandlerType { get; }
+
+        public string ReturnType { get; }
+
+        public ImmutableArray<HandlerParameterModel> Parameters { get; }
+
+        public string GeneratedHandlerTypeName { get; }
+
+        public bool IsMethodHandler => HandlerType is not null;
+
+        public bool IsStaticHandler { get; }
     }
 
     private sealed class NotificationModel
     {
-        public NotificationModel(string notificationType)
+        public NotificationModel(string notificationType, ImmutableArray<MethodHandlerModel> methodHandlers = default)
         {
             NotificationType = notificationType;
+            MethodHandlers = methodHandlers.IsDefault ? ImmutableArray<MethodHandlerModel>.Empty : methodHandlers;
         }
 
         public string NotificationType { get; }
+
+        public ImmutableArray<MethodHandlerModel> MethodHandlers { get; }
+
+        public NotificationModel Append(ImmutableArray<MethodHandlerModel> methodHandlers)
+        {
+            return new NotificationModel(NotificationType, MethodHandlers.AddRange(methodHandlers));
+        }
+    }
+
+    private sealed class MethodHandlerModel
+    {
+        public MethodHandlerModel(
+            string handlerType,
+            string returnType,
+            ImmutableArray<HandlerParameterModel> parameters,
+            string generatedHandlerTypeName,
+            bool isStaticHandler)
+        {
+            HandlerType = handlerType;
+            ReturnType = returnType;
+            Parameters = parameters;
+            GeneratedHandlerTypeName = generatedHandlerTypeName;
+            IsStaticHandler = isStaticHandler;
+        }
+
+        public string HandlerType { get; }
+
+        public string ReturnType { get; }
+
+        public ImmutableArray<HandlerParameterModel> Parameters { get; }
+
+        public string GeneratedHandlerTypeName { get; }
+
+        public bool IsStaticHandler { get; }
+    }
+
+    private sealed class HandlerParameterModel
+    {
+        public HandlerParameterModel(string type, HandlerParameterKind kind)
+        {
+            Type = type;
+            Kind = kind;
+        }
+
+        public string Type { get; }
+
+        public HandlerParameterKind Kind { get; }
+    }
+
+    private enum HandlerParameterKind
+    {
+        Service = 0,
+        CancellationToken = 1
     }
 }
