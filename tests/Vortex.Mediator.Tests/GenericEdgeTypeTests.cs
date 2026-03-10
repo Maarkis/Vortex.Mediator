@@ -126,7 +126,7 @@ public sealed class GenericEdgeTypeTests
     private static ServiceCollection CreateServices()
     {
         var services = new ServiceCollection();
-        services.AddVortexMediator();
+        services.AddVortexMediator(Enumerable.Empty<System.Reflection.Assembly>());
         return services;
     }
 

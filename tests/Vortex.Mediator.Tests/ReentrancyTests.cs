@@ -10,7 +10,7 @@ public sealed class ReentrancyTests
     public async Task SendSupportsNestedMediatorDispatch()
     {
         var services = new ServiceCollection();
-        services.AddVortexMediator();
+        services.AddVortexMediator(Enumerable.Empty<System.Reflection.Assembly>());
         services.AddScoped<IRequestHandler<OuterQuery, string>, OuterQueryHandler>();
         services.AddScoped<IRequestHandler<InnerQuery, string>, InnerQueryHandler>();
 
