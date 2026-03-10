@@ -4,13 +4,14 @@
     <RootNamespace>Vortex.Mediator.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="../../src/Vortex.Mediator/Vortex.Mediator.csproj" />
     <ProjectReference Include="../../src/Vortex.Mediator.Abstractions/Vortex.Mediator.Abstractions.csproj" />
     <ProjectReference Include="../../src/Vortex.Mediator.SourceGenerator/Vortex.Mediator.SourceGenerator.csproj" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="NUnit" Version="4.4.0" />
@@ -18,12 +19,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Analyzer Include="../../src/Vortex.Mediator.SourceGenerator/bin/$(Configuration)/net9.0/Vortex.Mediator.SourceGenerator.dll" />
+    <Analyzer Include="../../src/Vortex.Mediator.SourceGenerator/bin/$(Configuration)/netstandard2.0/Vortex.Mediator.SourceGenerator.dll" />
   </ItemGroup>
 
   <Target Name="BuildMediatorSourceGenerator" BeforeTargets="CoreCompile">
     <MSBuild Projects="../../src/Vortex.Mediator.SourceGenerator/Vortex.Mediator.SourceGenerator.csproj"
              Targets="Build"
-             Properties="Configuration=$(Configuration)" />
+             Properties="Configuration=$(Configuration)"
+             RemoveProperties="TargetFramework;TargetFrameworks" />
   </Target>
 </Project>

@@ -15,6 +15,7 @@ public sealed class MediatorGenerator : IIncrementalGenerator
     private const string RequestWithResponseMetadataName = "Vortex.Mediator.Abstractions.IRequest`1";
     private const string StreamRequestMetadataName = "Vortex.Mediator.Abstractions.IStreamRequest`1";
     private const string NotificationMetadataName = "Vortex.Mediator.Abstractions.INotification";
+
     private static readonly SymbolDisplayFormat TypeDisplayFormat = new(
         globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
         typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
@@ -687,21 +688,72 @@ public sealed class MediatorGenerator : IIncrementalGenerator
         builder.AppendLine("    }");
     }
 
-    private sealed record GenerationModel(
-        ImmutableArray<RequestModel> Requests,
-        ImmutableArray<CommandModel> Commands,
-        ImmutableArray<StreamRequestModel> Streams,
-        ImmutableArray<NotificationModel> Notifications);
+    private sealed class GenerationModel
+    {
+        public GenerationModel(
+            ImmutableArray<RequestModel> requests,
+            ImmutableArray<CommandModel> commands,
+            ImmutableArray<StreamRequestModel> streams,
+            ImmutableArray<NotificationModel> notifications)
+        {
+            Requests = requests;
+            Commands = commands;
+            Streams = streams;
+            Notifications = notifications;
+        }
 
-    private sealed record RequestModel(
-        string RequestType,
-        string ResponseType);
+        public ImmutableArray<RequestModel> Requests { get; }
 
-    private sealed record CommandModel(string RequestType);
+        public ImmutableArray<CommandModel> Commands { get; }
 
-    private sealed record StreamRequestModel(
-        string RequestType,
-        string ResponseType);
+        public ImmutableArray<StreamRequestModel> Streams { get; }
 
-    private sealed record NotificationModel(string NotificationType);
+        public ImmutableArray<NotificationModel> Notifications { get; }
+    }
+
+    private sealed class RequestModel
+    {
+        public RequestModel(string requestType, string responseType)
+        {
+            RequestType = requestType;
+            ResponseType = responseType;
+        }
+
+        public string RequestType { get; }
+
+        public string ResponseType { get; }
+    }
+
+    private sealed class CommandModel
+    {
+        public CommandModel(string requestType)
+        {
+            RequestType = requestType;
+        }
+
+        public string RequestType { get; }
+    }
+
+    private sealed class StreamRequestModel
+    {
+        public StreamRequestModel(string requestType, string responseType)
+        {
+            RequestType = requestType;
+            ResponseType = responseType;
+        }
+
+        public string RequestType { get; }
+
+        public string ResponseType { get; }
+    }
+
+    private sealed class NotificationModel
+    {
+        public NotificationModel(string notificationType)
+        {
+            NotificationType = notificationType;
+        }
+
+        public string NotificationType { get; }
+    }
 }
