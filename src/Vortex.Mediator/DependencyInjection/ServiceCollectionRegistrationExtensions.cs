@@ -1,6 +1,7 @@
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Vortex.Mediator.Abstractions;
 
 namespace Vortex.Mediator.DependencyInjection;
 
@@ -8,16 +9,17 @@ internal static class ServiceCollectionRegistrationExtensions
 {
     private static readonly Type[] SupportedOpenGenericTypes =
     [
-        typeof(Vortex.Mediator.Abstractions.IRequestHandler<,>),
-        typeof(Vortex.Mediator.Abstractions.IRequestHandler<>),
-        typeof(Vortex.Mediator.Abstractions.INotificationHandler<>),
-        typeof(Vortex.Mediator.Abstractions.IStreamRequestHandler<,>),
-        typeof(Vortex.Mediator.Abstractions.IPipelineBehavior<,>),
-        typeof(Vortex.Mediator.Abstractions.IPipelineBehavior<>),
-        typeof(Vortex.Mediator.Abstractions.IStreamPipelineBehavior<,>)
+        typeof(IRequestHandler<,>),
+        typeof(IRequestHandler<>),
+        typeof(INotificationHandler<>),
+        typeof(IStreamRequestHandler<,>),
+        typeof(IPipelineBehavior<,>),
+        typeof(IPipelineBehavior<>),
+        typeof(IStreamPipelineBehavior<,>)
     ];
 
-    public static IServiceCollection AddMediatorServices(this IServiceCollection services, IEnumerable<Assembly> assemblies)
+    public static IServiceCollection AddMediatorServices(this IServiceCollection services,
+        IEnumerable<Assembly> assemblies)
     {
         var descriptors = new List<ServiceDescriptor>();
 
@@ -65,6 +67,7 @@ internal static class ServiceCollectionRegistrationExtensions
             types = exception.Types.Where(static type => type is not null).Cast<Type>().ToArray();
         }
 
-        return types.Where(static type => type is { IsClass: true, IsAbstract: false } && !type.ContainsGenericParameters);
+        return types.Where(static type =>
+            type is { IsClass: true, IsAbstract: false } && !type.ContainsGenericParameters);
     }
 }

@@ -165,7 +165,7 @@ public sealed class DependencyInjectionTests
 
     public sealed class AutoBehavior(AutoRecorder recorder) : IPipelineBehavior<AutoBehaviorQuery, string>
     {
-        public async Task<string> Handle(AutoBehaviorQuery request, CancellationToken cancellationToken, RequestHandlerDelegate<string> next)
+        public async Task<string> Handle(AutoBehaviorQuery request, RequestHandlerDelegate<string> next, CancellationToken cancellationToken)
         {
             recorder.Events.Add("before");
             var response = await next();

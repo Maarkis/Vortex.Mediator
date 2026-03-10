@@ -103,7 +103,7 @@ public static class PipelineExecutor
     {
         public Task<TResponse> Invoke()
         {
-            return behavior.Handle(request, cancellationToken, next);
+            return behavior.Handle(request, next, cancellationToken);
         }
     }
 
@@ -128,7 +128,7 @@ public static class PipelineExecutor
     {
         public Task Invoke()
         {
-            return behavior.Handle(request, cancellationToken, next);
+            return behavior.Handle(request, next, cancellationToken);
         }
     }
 
@@ -153,7 +153,7 @@ public static class PipelineExecutor
     {
         public IAsyncEnumerable<TResponse> Invoke()
         {
-            return behavior.Handle(request, cancellationToken, next);
+            return behavior.Handle(request, next, cancellationToken);
         }
     }
 }

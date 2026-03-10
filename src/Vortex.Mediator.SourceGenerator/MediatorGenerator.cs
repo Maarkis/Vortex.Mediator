@@ -575,7 +575,7 @@ public sealed class MediatorGenerator : IIncrementalGenerator
         builder.AppendLine("    {");
         builder.AppendLine("        public Task<TResponse> Invoke()");
         builder.AppendLine("        {");
-        builder.AppendLine("            return behavior.Handle(request, cancellationToken, next);");
+        builder.AppendLine("            return behavior.Handle(request, next, cancellationToken);");
         builder.AppendLine("        }");
         builder.AppendLine("    }");
         builder.AppendLine();
@@ -600,7 +600,7 @@ public sealed class MediatorGenerator : IIncrementalGenerator
         builder.AppendLine("    {");
         builder.AppendLine("        public Task Invoke()");
         builder.AppendLine("        {");
-        builder.AppendLine("            return behavior.Handle(request, cancellationToken, next);");
+        builder.AppendLine("            return behavior.Handle(request, next, cancellationToken);");
         builder.AppendLine("        }");
         builder.AppendLine("    }");
         builder.AppendLine();
@@ -625,7 +625,7 @@ public sealed class MediatorGenerator : IIncrementalGenerator
         builder.AppendLine("    {");
         builder.AppendLine("        public IAsyncEnumerable<TResponse> Invoke()");
         builder.AppendLine("        {");
-        builder.AppendLine("            return behavior.Handle(request, cancellationToken, next);");
+        builder.AppendLine("            return behavior.Handle(request, next, cancellationToken);");
         builder.AppendLine("        }");
         builder.AppendLine("    }");
     }

@@ -148,7 +148,7 @@ public sealed class ExceptionPipelineTests
 
     private sealed class ThrowingResponseBeforeBehavior : IPipelineBehavior<ResponseRequest, string>
     {
-        public Task<string> Handle(ResponseRequest request, CancellationToken cancellationToken, RequestHandlerDelegate<string> next)
+        public Task<string> Handle(ResponseRequest request, RequestHandlerDelegate<string> next, CancellationToken cancellationToken)
         {
             throw new InvalidOperationException("before");
         }
@@ -156,7 +156,7 @@ public sealed class ExceptionPipelineTests
 
     private sealed class ThrowingResponseAfterBehavior : IPipelineBehavior<ResponseRequest, string>
     {
-        public async Task<string> Handle(ResponseRequest request, CancellationToken cancellationToken, RequestHandlerDelegate<string> next)
+        public async Task<string> Handle(ResponseRequest request, RequestHandlerDelegate<string> next, CancellationToken cancellationToken)
         {
             _ = await next();
             throw new InvalidOperationException("after");
@@ -165,7 +165,7 @@ public sealed class ExceptionPipelineTests
 
     private sealed class ThrowingCommandBeforeBehavior : IPipelineBehavior<CommandRequest>
     {
-        public Task Handle(CommandRequest request, CancellationToken cancellationToken, RequestHandlerDelegate next)
+        public Task Handle(CommandRequest request, RequestHandlerDelegate next, CancellationToken cancellationToken)
         {
             throw new InvalidOperationException("before");
         }
@@ -173,7 +173,7 @@ public sealed class ExceptionPipelineTests
 
     private sealed class ThrowingCommandAfterBehavior : IPipelineBehavior<CommandRequest>
     {
-        public async Task Handle(CommandRequest request, CancellationToken cancellationToken, RequestHandlerDelegate next)
+        public async Task Handle(CommandRequest request, RequestHandlerDelegate next, CancellationToken cancellationToken)
         {
             await next();
             throw new InvalidOperationException("after");
@@ -182,7 +182,7 @@ public sealed class ExceptionPipelineTests
 
     private sealed class ThrowingStreamBehavior : IStreamPipelineBehavior<StreamRequest, int>
     {
-        public IAsyncEnumerable<int> Handle(StreamRequest request, CancellationToken cancellationToken, StreamHandlerDelegate<int> next)
+        public IAsyncEnumerable<int> Handle(StreamRequest request, StreamHandlerDelegate<int> next, CancellationToken cancellationToken)
         {
             throw new InvalidOperationException("stream behavior");
         }

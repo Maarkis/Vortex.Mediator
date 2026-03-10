@@ -148,7 +148,7 @@ public sealed class PipelineExecutorTests
 
     private sealed class ResponseOuterBehavior(List<string> recorder) : IPipelineBehavior<ResponseRequest, string>
     {
-        public async Task<string> Handle(ResponseRequest request, CancellationToken cancellationToken, RequestHandlerDelegate<string> next)
+        public async Task<string> Handle(ResponseRequest request, RequestHandlerDelegate<string> next, CancellationToken cancellationToken)
         {
             recorder.Add("response-outer:before");
             var response = await next();
@@ -159,7 +159,7 @@ public sealed class PipelineExecutorTests
 
     private sealed class ResponseInnerBehavior(List<string> recorder) : IPipelineBehavior<ResponseRequest, string>
     {
-        public async Task<string> Handle(ResponseRequest request, CancellationToken cancellationToken, RequestHandlerDelegate<string> next)
+        public async Task<string> Handle(ResponseRequest request, RequestHandlerDelegate<string> next, CancellationToken cancellationToken)
         {
             recorder.Add("response-inner:before");
             var response = await next();
@@ -170,7 +170,7 @@ public sealed class PipelineExecutorTests
 
     private sealed class CommandOuterBehavior(List<string> recorder) : IPipelineBehavior<CommandRequest>
     {
-        public async Task Handle(CommandRequest request, CancellationToken cancellationToken, RequestHandlerDelegate next)
+        public async Task Handle(CommandRequest request, RequestHandlerDelegate next, CancellationToken cancellationToken)
         {
             recorder.Add("command-outer:before");
             await next();
@@ -180,7 +180,7 @@ public sealed class PipelineExecutorTests
 
     private sealed class CommandInnerBehavior(List<string> recorder) : IPipelineBehavior<CommandRequest>
     {
-        public async Task Handle(CommandRequest request, CancellationToken cancellationToken, RequestHandlerDelegate next)
+        public async Task Handle(CommandRequest request, RequestHandlerDelegate next, CancellationToken cancellationToken)
         {
             recorder.Add("command-inner:before");
             await next();
@@ -190,7 +190,7 @@ public sealed class PipelineExecutorTests
 
     private sealed class StreamOuterBehavior(List<string> recorder) : IStreamPipelineBehavior<StreamRequest, int>
     {
-        public IAsyncEnumerable<int> Handle(StreamRequest request, CancellationToken cancellationToken, StreamHandlerDelegate<int> next)
+        public IAsyncEnumerable<int> Handle(StreamRequest request, StreamHandlerDelegate<int> next, CancellationToken cancellationToken)
         {
             recorder.Add("stream-outer:before");
             var stream = next();
@@ -201,7 +201,7 @@ public sealed class PipelineExecutorTests
 
     private sealed class StreamInnerBehavior(List<string> recorder) : IStreamPipelineBehavior<StreamRequest, int>
     {
-        public IAsyncEnumerable<int> Handle(StreamRequest request, CancellationToken cancellationToken, StreamHandlerDelegate<int> next)
+        public IAsyncEnumerable<int> Handle(StreamRequest request, StreamHandlerDelegate<int> next, CancellationToken cancellationToken)
         {
             recorder.Add("stream-inner:before");
             var stream = next();

@@ -343,8 +343,8 @@ public sealed class MediatorTests
 
     public sealed class ResponseOuterBehavior(InvocationRecorder recorder) : IPipelineBehavior<GetNameQuery, string>
     {
-        public async Task<string> Handle(GetNameQuery request, CancellationToken cancellationToken,
-            RequestHandlerDelegate<string> next)
+        public async Task<string> Handle(GetNameQuery request, RequestHandlerDelegate<string> next,
+            CancellationToken cancellationToken)
         {
             recorder.Events.Add("response-outer:before");
             var response = await next();
@@ -355,8 +355,8 @@ public sealed class MediatorTests
 
     public sealed class ResponseInnerBehavior(InvocationRecorder recorder) : IPipelineBehavior<GetNameQuery, string>
     {
-        public async Task<string> Handle(GetNameQuery request, CancellationToken cancellationToken,
-            RequestHandlerDelegate<string> next)
+        public async Task<string> Handle(GetNameQuery request, RequestHandlerDelegate<string> next,
+            CancellationToken cancellationToken)
         {
             recorder.Events.Add("response-inner:before");
             var response = await next();
@@ -367,8 +367,8 @@ public sealed class MediatorTests
 
     public sealed class CommandOuterBehavior(InvocationRecorder recorder) : IPipelineBehavior<CreateUserCommand>
     {
-        public async Task Handle(CreateUserCommand request, CancellationToken cancellationToken,
-            RequestHandlerDelegate next)
+        public async Task Handle(CreateUserCommand request, RequestHandlerDelegate next,
+            CancellationToken cancellationToken)
         {
             recorder.Events.Add("command-outer:before");
             await next();
@@ -378,8 +378,8 @@ public sealed class MediatorTests
 
     public sealed class CommandInnerBehavior(InvocationRecorder recorder) : IPipelineBehavior<CreateUserCommand>
     {
-        public async Task Handle(CreateUserCommand request, CancellationToken cancellationToken,
-            RequestHandlerDelegate next)
+        public async Task Handle(CreateUserCommand request, RequestHandlerDelegate next,
+            CancellationToken cancellationToken)
         {
             recorder.Events.Add("command-inner:before");
             await next();
@@ -390,8 +390,8 @@ public sealed class MediatorTests
     public sealed class StreamOuterBehavior(InvocationRecorder recorder)
         : IStreamPipelineBehavior<GetNumbersStream, int>
     {
-        public IAsyncEnumerable<int> Handle(GetNumbersStream request, CancellationToken cancellationToken,
-            StreamHandlerDelegate<int> next)
+        public IAsyncEnumerable<int> Handle(GetNumbersStream request, StreamHandlerDelegate<int> next,
+            CancellationToken cancellationToken)
         {
             recorder.Events.Add("stream-outer:before");
             var stream = next();
@@ -403,8 +403,8 @@ public sealed class MediatorTests
     public sealed class StreamInnerBehavior(InvocationRecorder recorder)
         : IStreamPipelineBehavior<GetNumbersStream, int>
     {
-        public IAsyncEnumerable<int> Handle(GetNumbersStream request, CancellationToken cancellationToken,
-            StreamHandlerDelegate<int> next)
+        public IAsyncEnumerable<int> Handle(GetNumbersStream request, StreamHandlerDelegate<int> next,
+            CancellationToken cancellationToken)
         {
             recorder.Events.Add("stream-inner:before");
             var stream = next();
