@@ -1,7 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Vortex.Mediator.Abstractions;
 
-namespace Vortex.Mediator;
+namespace Vortex.Mediator.DependencyInjection;
 
 public static class VortexMediatorServiceCollectionExtensions
 {
