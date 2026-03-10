@@ -2,11 +2,15 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{B3A72956-B4A2-4860-9958-E3A31D8355C4}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vortex.Mediator.Abstractions", "src\Vortex.Mediator.Abstractions\Vortex.Mediator.Abstractions.csproj", "{B19FE1A1-DB30-405A-BCBA-A7FF4F963C91}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vortex.Mediator", "src\Vortex.Mediator\Vortex.Mediator.csproj", "{8938CC75-AB81-4D68-9652-873B317E2475}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vortex.Mediator.SourceGenerator", "src\Vortex.Mediator.SourceGenerator\Vortex.Mediator.SourceGenerator.csproj", "{F116429A-8BB8-4CA9-829E-667AE995B183}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vortex.Mediator.Tests", "tests\Vortex.Mediator.Tests\Vortex.Mediator.Tests.csproj", "{FE4C92D3-6DA7-48AB-9262-6D4289A41A0C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -54,6 +58,18 @@ Global
 		{F116429A-8BB8-4CA9-829E-667AE995B183}.Release|x64.Build.0 = Release|Any CPU
 		{F116429A-8BB8-4CA9-829E-667AE995B183}.Release|x86.ActiveCfg = Release|Any CPU
 		{F116429A-8BB8-4CA9-829E-667AE995B183}.Release|x86.Build.0 = Release|Any CPU
+		{FE4C92D3-6DA7-48AB-9262-6D4289A41A0C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FE4C92D3-6DA7-48AB-9262-6D4289A41A0C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FE4C92D3-6DA7-48AB-9262-6D4289A41A0C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{FE4C92D3-6DA7-48AB-9262-6D4289A41A0C}.Debug|x64.Build.0 = Debug|Any CPU
+		{FE4C92D3-6DA7-48AB-9262-6D4289A41A0C}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{FE4C92D3-6DA7-48AB-9262-6D4289A41A0C}.Debug|x86.Build.0 = Debug|Any CPU
+		{FE4C92D3-6DA7-48AB-9262-6D4289A41A0C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FE4C92D3-6DA7-48AB-9262-6D4289A41A0C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FE4C92D3-6DA7-48AB-9262-6D4289A41A0C}.Release|x64.ActiveCfg = Release|Any CPU
+		{FE4C92D3-6DA7-48AB-9262-6D4289A41A0C}.Release|x64.Build.0 = Release|Any CPU
+		{FE4C92D3-6DA7-48AB-9262-6D4289A41A0C}.Release|x86.ActiveCfg = Release|Any CPU
+		{FE4C92D3-6DA7-48AB-9262-6D4289A41A0C}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -62,5 +78,6 @@ Global
 		{B19FE1A1-DB30-405A-BCBA-A7FF4F963C91} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{8938CC75-AB81-4D68-9652-873B317E2475} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{F116429A-8BB8-4CA9-829E-667AE995B183} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{FE4C92D3-6DA7-48AB-9262-6D4289A41A0C} = {B3A72956-B4A2-4860-9958-E3A31D8355C4}
 	EndGlobalSection
 EndGlobal

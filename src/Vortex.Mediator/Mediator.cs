@@ -15,7 +15,21 @@ public sealed class Mediator : IMediator
     public Task<TResponse> Send<TResponse>(IRequest<TResponse> request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        return DispatchResponse(request, cancellationToken);
+    }
+
+    public Task Send(IRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
         return Dispatch(request, cancellationToken);
+    }
+
+    public IAsyncEnumerable<TResponse> CreateStream<TResponse>(
+        IStreamRequest<TResponse> request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return DispatchStream(request, cancellationToken);
     }
 
     public Task Publish(INotification notification, CancellationToken cancellationToken = default)
@@ -24,7 +38,9 @@ public sealed class Mediator : IMediator
         return DispatchNotification(notification, cancellationToken);
     }
 
-    private Task<TResponse> Dispatch<TResponse>(IRequest<TResponse> request, CancellationToken cancellationToken)
+    private Task<TResponse> DispatchResponse<TResponse>(
+        IRequest<TResponse> request,
+        CancellationToken cancellationToken)
     {
         var bindings = Bindings.Value;
 
@@ -37,6 +53,38 @@ public sealed class Mediator : IMediator
         }
 
         throw new InvalidOperationException($"No handler mapping was generated for '{request.GetType()}'.");
+    }
+
+    private Task Dispatch(IRequest request, CancellationToken cancellationToken)
+    {
+        var bindings = Bindings.Value;
+
+        for (var index = 0; index < bindings.Count; index++)
+        {
+            if (bindings[index].TryDispatch(request, _provider, cancellationToken, out Task? task))
+            {
+                return task!;
+            }
+        }
+
+        throw new InvalidOperationException($"No handler mapping was generated for '{request.GetType()}'.");
+    }
+
+    private IAsyncEnumerable<TResponse> DispatchStream<TResponse>(
+        IStreamRequest<TResponse> request,
+        CancellationToken cancellationToken)
+    {
+        var bindings = Bindings.Value;
+
+        for (var index = 0; index < bindings.Count; index++)
+        {
+            if (bindings[index].TryCreateStream(request, _provider, cancellationToken, out IAsyncEnumerable<TResponse>? stream))
+            {
+                return stream!;
+            }
+        }
+
+        throw new InvalidOperationException($"No stream handler mapping was generated for '{request.GetType()}'.");
     }
 
     private Task DispatchNotification(INotification notification, CancellationToken cancellationToken)

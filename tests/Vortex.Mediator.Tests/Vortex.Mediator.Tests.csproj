@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Vortex.Mediator.Tests</AssemblyName>
+    <RootNamespace>Vortex.Mediator.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Vortex.Mediator/Vortex.Mediator.csproj" />
+    <ProjectReference Include="../../src/Vortex.Mediator.Abstractions/Vortex.Mediator.Abstractions.csproj" />
+    <ProjectReference Include="../../src/Vortex.Mediator.SourceGenerator/Vortex.Mediator.SourceGenerator.csproj" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="NUnit" Version="4.4.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="5.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Analyzer Include="../../src/Vortex.Mediator.SourceGenerator/bin/$(Configuration)/net9.0/Vortex.Mediator.SourceGenerator.dll" />
+  </ItemGroup>
+
+  <Target Name="BuildMediatorSourceGenerator" BeforeTargets="CoreCompile">
+    <MSBuild Projects="../../src/Vortex.Mediator.SourceGenerator/Vortex.Mediator.SourceGenerator.csproj"
+             Targets="Build"
+             Properties="Configuration=$(Configuration)" />
+  </Target>
+</Project>

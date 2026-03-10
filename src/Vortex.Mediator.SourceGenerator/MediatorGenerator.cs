@@ -11,8 +11,19 @@ namespace Vortex.Mediator.SourceGenerator;
 [Generator]
 public sealed class MediatorGenerator : IIncrementalGenerator
 {
-    private const string RequestMetadataName = "Vortex.Mediator.Abstractions.IRequest`1";
+    private const string RequestMetadataName = "Vortex.Mediator.Abstractions.IRequest";
+    private const string RequestWithResponseMetadataName = "Vortex.Mediator.Abstractions.IRequest`1";
+    private const string StreamRequestMetadataName = "Vortex.Mediator.Abstractions.IStreamRequest`1";
     private const string NotificationMetadataName = "Vortex.Mediator.Abstractions.INotification";
+    private static readonly SymbolDisplayFormat TypeDisplayFormat = new(
+        globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
+        typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
+        genericsOptions:
+        SymbolDisplayGenericsOptions.IncludeTypeParameters |
+        SymbolDisplayGenericsOptions.IncludeVariance,
+        miscellaneousOptions:
+        SymbolDisplayMiscellaneousOptions.UseSpecialTypes |
+        SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
@@ -30,14 +41,25 @@ public sealed class MediatorGenerator : IIncrementalGenerator
     private static GenerationModel CreateModel(Compilation compilation)
     {
         var requestInterface = compilation.GetTypeByMetadataName(RequestMetadataName);
+        var requestWithResponseInterface = compilation.GetTypeByMetadataName(RequestWithResponseMetadataName);
+        var streamRequestInterface = compilation.GetTypeByMetadataName(StreamRequestMetadataName);
         var notificationInterface = compilation.GetTypeByMetadataName(NotificationMetadataName);
 
-        if (requestInterface is null || notificationInterface is null)
+        if (requestInterface is null ||
+            requestWithResponseInterface is null ||
+            streamRequestInterface is null ||
+            notificationInterface is null)
         {
-            return new GenerationModel(ImmutableArray<RequestModel>.Empty, ImmutableArray<NotificationModel>.Empty);
+            return new GenerationModel(
+                ImmutableArray<RequestModel>.Empty,
+                ImmutableArray<CommandModel>.Empty,
+                ImmutableArray<StreamRequestModel>.Empty,
+                ImmutableArray<NotificationModel>.Empty);
         }
 
         var requests = ImmutableArray.CreateBuilder<RequestModel>();
+        var commands = ImmutableArray.CreateBuilder<CommandModel>();
+        var streams = ImmutableArray.CreateBuilder<StreamRequestModel>();
         var notifications = ImmutableArray.CreateBuilder<NotificationModel>();
 
         foreach (var type in EnumerateTypes(compilation.Assembly.GlobalNamespace))
@@ -47,10 +69,22 @@ public sealed class MediatorGenerator : IIncrementalGenerator
                 continue;
             }
 
-            var request = TryCreateRequestModel(type, requestInterface);
+            var request = TryCreateRequestModel(type, requestWithResponseInterface);
             if (request is not null)
             {
                 requests.Add(request);
+            }
+
+            var command = TryCreateCommandModel(type, requestInterface);
+            if (command is not null)
+            {
+                commands.Add(command);
+            }
+
+            var stream = TryCreateStreamRequestModel(type, streamRequestInterface);
+            if (stream is not null)
+            {
+                streams.Add(stream);
             }
 
             var notification = TryCreateNotificationModel(type, notificationInterface);
@@ -62,6 +96,10 @@ public sealed class MediatorGenerator : IIncrementalGenerator
 
         return new GenerationModel(
             requests.ToImmutable().Sort(static (left, right) =>
+                StringComparer.Ordinal.Compare(left.RequestType, right.RequestType)),
+            commands.ToImmutable().Sort(static (left, right) =>
+                StringComparer.Ordinal.Compare(left.RequestType, right.RequestType)),
+            streams.ToImmutable().Sort(static (left, right) =>
                 StringComparer.Ordinal.Compare(left.RequestType, right.RequestType)),
             notifications.ToImmutable().Sort(static (left, right) =>
                 StringComparer.Ordinal.Compare(left.NotificationType, right.NotificationType)));
@@ -77,6 +115,37 @@ public sealed class MediatorGenerator : IIncrementalGenerator
             }
 
             return new RequestModel(
+                GetDisplayName(type),
+                GetDisplayName(candidate.TypeArguments[0]));
+        }
+
+        return null;
+    }
+
+    private static CommandModel? TryCreateCommandModel(INamedTypeSymbol type, INamedTypeSymbol requestInterface)
+    {
+        foreach (var candidate in type.AllInterfaces)
+        {
+            if (SymbolEqualityComparer.Default.Equals(candidate, requestInterface))
+            {
+                return new CommandModel(GetDisplayName(type));
+            }
+        }
+
+        return null;
+    }
+
+    private static StreamRequestModel? TryCreateStreamRequestModel(INamedTypeSymbol type,
+        INamedTypeSymbol streamRequestInterface)
+    {
+        foreach (var candidate in type.AllInterfaces)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(candidate.OriginalDefinition, streamRequestInterface))
+            {
+                continue;
+            }
+
+            return new StreamRequestModel(
                 GetDisplayName(type),
                 GetDisplayName(candidate.TypeArguments[0]));
         }
@@ -132,7 +201,7 @@ public sealed class MediatorGenerator : IIncrementalGenerator
 
     private static string GetDisplayName(ITypeSymbol symbol)
     {
-        return symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        return symbol.ToDisplayString(TypeDisplayFormat);
     }
 
     private static string RenderSource(GenerationModel model)
@@ -147,12 +216,30 @@ public sealed class MediatorGenerator : IIncrementalGenerator
         builder.AppendLine("using Vortex.Mediator;");
         builder.AppendLine("using Vortex.Mediator.Abstractions;");
         builder.AppendLine();
-        builder.AppendLine("[assembly: global::Vortex.Mediator.MediatorBindingAttribute(typeof(global::Vortex.Mediator.GeneratedMediatorBinding))]");
+        builder.AppendLine(
+            "[assembly: global::Vortex.Mediator.MediatorBindingAttribute(typeof(global::Vortex.Mediator.GeneratedMediatorBinding))]");
         builder.AppendLine();
         builder.AppendLine("namespace Vortex.Mediator;");
         builder.AppendLine();
         builder.AppendLine("internal sealed class GeneratedMediatorBinding : IMediatorBinding");
         builder.AppendLine("{");
+        RenderRequestDispatch(builder, model.Requests);
+        builder.AppendLine();
+        RenderCommandDispatch(builder, model.Commands);
+        builder.AppendLine();
+        RenderStreamDispatch(builder, model.Streams);
+        builder.AppendLine();
+        RenderNotificationDispatch(builder, model.Notifications);
+        builder.AppendLine();
+        RenderPipelineHelpers(builder);
+        builder.AppendLine();
+        RenderResolverHelpers(builder);
+        builder.AppendLine("}");
+        return builder.ToString();
+    }
+
+    private static void RenderRequestDispatch(StringBuilder builder, ImmutableArray<RequestModel> requests)
+    {
         builder.AppendLine("    public bool TryDispatch<TResponse>(");
         builder.AppendLine("        IRequest<TResponse> request,");
         builder.AppendLine("        IServiceProvider provider,");
@@ -162,16 +249,17 @@ public sealed class MediatorGenerator : IIncrementalGenerator
         builder.AppendLine("        task = request switch");
         builder.AppendLine("        {");
 
-        if (model.Requests.Length == 0)
+        if (requests.Length == 0)
         {
             builder.AppendLine("            _ => null");
         }
         else
         {
-            foreach (var request in model.Requests)
+            foreach (var request in requests)
             {
                 builder.Append("            ").Append(request.RequestType)
-                    .Append(" typed => (Task<TResponse>)(object)Dispatch(typed, provider, cancellationToken),").AppendLine();
+                    .Append(" typed => (Task<TResponse>)(object)Dispatch(typed, provider, cancellationToken),")
+                    .AppendLine();
             }
 
             builder.AppendLine("            _ => null");
@@ -182,7 +270,7 @@ public sealed class MediatorGenerator : IIncrementalGenerator
         builder.AppendLine("    }");
         builder.AppendLine();
 
-        foreach (var request in model.Requests)
+        foreach (var request in requests)
         {
             builder.Append("    private Task<").Append(request.ResponseType).Append("> Dispatch(")
                 .Append(request.RequestType).AppendLine(" request,");
@@ -194,12 +282,125 @@ public sealed class MediatorGenerator : IIncrementalGenerator
                 .Append(", ")
                 .Append(request.ResponseType)
                 .AppendLine(">>(provider);");
-            builder.AppendLine("        var behaviors = GetServices<IPipelineBehavior<" + request.RequestType + ", " + request.ResponseType + ">>(provider);");
+            builder.Append("        var behaviors = GetServices<IPipelineBehavior<")
+                .Append(request.RequestType)
+                .Append(", ")
+                .Append(request.ResponseType)
+                .AppendLine(">>(provider);");
             builder.AppendLine("        return ExecutePipeline(request, cancellationToken, handler, behaviors);");
             builder.AppendLine("    }");
             builder.AppendLine();
         }
+    }
 
+    private static void RenderCommandDispatch(StringBuilder builder, ImmutableArray<CommandModel> commands)
+    {
+        builder.AppendLine("    public bool TryDispatch(");
+        builder.AppendLine("        IRequest request,");
+        builder.AppendLine("        IServiceProvider provider,");
+        builder.AppendLine("        CancellationToken cancellationToken,");
+        builder.AppendLine("        out Task? task)");
+        builder.AppendLine("    {");
+        builder.AppendLine("        task = request switch");
+        builder.AppendLine("        {");
+
+        if (commands.Length == 0)
+        {
+            builder.AppendLine("            _ => null");
+        }
+        else
+        {
+            foreach (var command in commands)
+            {
+                builder.Append("            ").Append(command.RequestType)
+                    .Append(" typed => Dispatch(typed, provider, cancellationToken),").AppendLine();
+            }
+
+            builder.AppendLine("            _ => null");
+        }
+
+        builder.AppendLine("        };");
+        builder.AppendLine("        return task is not null;");
+        builder.AppendLine("    }");
+        builder.AppendLine();
+
+        foreach (var command in commands)
+        {
+            builder.Append("    private Task Dispatch(").Append(command.RequestType).AppendLine(" request,");
+            builder.AppendLine("        IServiceProvider provider,");
+            builder.AppendLine("        CancellationToken cancellationToken)");
+            builder.AppendLine("    {");
+            builder.Append("        var handler = GetRequiredService<IRequestHandler<")
+                .Append(command.RequestType)
+                .AppendLine(">>(provider);");
+            builder.Append("        var behaviors = GetServices<IPipelineBehavior<")
+                .Append(command.RequestType)
+                .AppendLine(">>(provider);");
+            builder.AppendLine("        return ExecutePipeline(request, cancellationToken, handler, behaviors);");
+            builder.AppendLine("    }");
+            builder.AppendLine();
+        }
+    }
+
+    private static void RenderStreamDispatch(StringBuilder builder, ImmutableArray<StreamRequestModel> streams)
+    {
+        builder.AppendLine("    public bool TryCreateStream<TResponse>(");
+        builder.AppendLine("        IStreamRequest<TResponse> request,");
+        builder.AppendLine("        IServiceProvider provider,");
+        builder.AppendLine("        CancellationToken cancellationToken,");
+        builder.AppendLine("        out IAsyncEnumerable<TResponse>? stream)");
+        builder.AppendLine("    {");
+        builder.AppendLine("        stream = request switch");
+        builder.AppendLine("        {");
+
+        if (streams.Length == 0)
+        {
+            builder.AppendLine("            _ => null");
+        }
+        else
+        {
+            foreach (var stream in streams)
+            {
+                builder.Append("            ").Append(stream.RequestType)
+                    .Append(
+                        " typed => (IAsyncEnumerable<TResponse>)(object)CreateStream(typed, provider, cancellationToken),")
+                    .AppendLine();
+            }
+
+            builder.AppendLine("            _ => null");
+        }
+
+        builder.AppendLine("        };");
+        builder.AppendLine("        return stream is not null;");
+        builder.AppendLine("    }");
+        builder.AppendLine();
+
+        foreach (var stream in streams)
+        {
+            builder.Append("    private IAsyncEnumerable<").Append(stream.ResponseType).Append("> CreateStream(")
+                .Append(stream.RequestType).AppendLine(" request,");
+            builder.AppendLine("        IServiceProvider provider,");
+            builder.AppendLine("        CancellationToken cancellationToken)");
+            builder.AppendLine("    {");
+            builder.Append("        var handler = GetRequiredService<IStreamRequestHandler<")
+                .Append(stream.RequestType)
+                .Append(", ")
+                .Append(stream.ResponseType)
+                .AppendLine(">>(provider);");
+            builder.Append("        var behaviors = GetServices<IStreamPipelineBehavior<")
+                .Append(stream.RequestType)
+                .Append(", ")
+                .Append(stream.ResponseType)
+                .AppendLine(">>(provider);");
+            builder.AppendLine("        return ExecuteStreamPipeline(request, cancellationToken, handler, behaviors);");
+            builder.AppendLine("    }");
+            builder.AppendLine();
+        }
+    }
+
+    private static void RenderNotificationDispatch(StringBuilder builder,
+        ImmutableArray<NotificationModel> notifications)
+    {
         builder.AppendLine("    public bool TryPublish(");
         builder.AppendLine("        INotification notification,");
         builder.AppendLine("        IServiceProvider provider,");
@@ -209,13 +410,13 @@ public sealed class MediatorGenerator : IIncrementalGenerator
         builder.AppendLine("        task = notification switch");
         builder.AppendLine("        {");
 
-        if (model.Notifications.Length == 0)
+        if (notifications.Length == 0)
         {
             builder.AppendLine("            _ => Task.CompletedTask");
         }
         else
         {
-            foreach (var notification in model.Notifications)
+            foreach (var notification in notifications)
             {
                 builder.Append("            ").Append(notification.NotificationType)
                     .Append(" typed => Publish(typed, provider, cancellationToken),").AppendLine();
@@ -229,7 +430,7 @@ public sealed class MediatorGenerator : IIncrementalGenerator
         builder.AppendLine("    }");
         builder.AppendLine();
 
-        foreach (var notification in model.Notifications)
+        foreach (var notification in notifications)
         {
             builder.Append("    private Task Publish(").Append(notification.NotificationType)
                 .AppendLine(" notification,");
@@ -247,9 +448,11 @@ public sealed class MediatorGenerator : IIncrementalGenerator
             builder.AppendLine("        };");
             builder.AppendLine("    }");
             builder.AppendLine();
-            builder.AppendLine("    private static Task PublishMany(" + notification.NotificationType + " notification,");
+            builder.Append("    private static Task PublishMany(").Append(notification.NotificationType)
+                .AppendLine(" notification,");
             builder.AppendLine("        CancellationToken cancellationToken,");
-            builder.AppendLine("        IReadOnlyList<INotificationHandler<" + notification.NotificationType + ">> handlers)");
+            builder.Append("        IReadOnlyList<INotificationHandler<").Append(notification.NotificationType)
+                .AppendLine(">> handlers)");
             builder.AppendLine("    {");
             builder.AppendLine("        var tasks = new Task[handlers.Count];");
             builder.AppendLine();
@@ -262,7 +465,10 @@ public sealed class MediatorGenerator : IIncrementalGenerator
             builder.AppendLine("    }");
             builder.AppendLine();
         }
+    }
 
+    private static void RenderPipelineHelpers(StringBuilder builder)
+    {
         builder.AppendLine("    private static Task<TResponse> ExecutePipeline<TRequest, TResponse>(");
         builder.AppendLine("        TRequest request,");
         builder.AppendLine("        CancellationToken cancellationToken,");
@@ -276,11 +482,69 @@ public sealed class MediatorGenerator : IIncrementalGenerator
         builder.AppendLine("        }");
         builder.AppendLine();
         builder.AppendLine("        RequestHandlerDelegate<TResponse> next =");
-        builder.AppendLine("            new HandlerInvocation<TRequest, TResponse>(request, cancellationToken, handler).Invoke;");
+        builder.AppendLine(
+            "            new HandlerInvocation<TRequest, TResponse>(request, cancellationToken, handler).Invoke;");
         builder.AppendLine();
         builder.AppendLine("        for (var index = behaviors.Count - 1; index >= 0; index--)");
         builder.AppendLine("        {");
         builder.AppendLine("            next = new BehaviorInvocation<TRequest, TResponse>(");
+        builder.AppendLine("                request,");
+        builder.AppendLine("                cancellationToken,");
+        builder.AppendLine("                behaviors[index],");
+        builder.AppendLine("                next).Invoke;");
+        builder.AppendLine("        }");
+        builder.AppendLine();
+        builder.AppendLine("        return next();");
+        builder.AppendLine("    }");
+        builder.AppendLine();
+        builder.AppendLine("    private static Task ExecutePipeline<TRequest>(");
+        builder.AppendLine("        TRequest request,");
+        builder.AppendLine("        CancellationToken cancellationToken,");
+        builder.AppendLine("        IRequestHandler<TRequest> handler,");
+        builder.AppendLine("        IReadOnlyList<IPipelineBehavior<TRequest>> behaviors)");
+        builder.AppendLine("        where TRequest : IRequest");
+        builder.AppendLine("    {");
+        builder.AppendLine("        if (behaviors.Count == 0)");
+        builder.AppendLine("        {");
+        builder.AppendLine("            return handler.Handle(request, cancellationToken);");
+        builder.AppendLine("        }");
+        builder.AppendLine();
+        builder.AppendLine("        RequestHandlerDelegate next =");
+        builder.AppendLine(
+            "            new CommandHandlerInvocation<TRequest>(request, cancellationToken, handler).Invoke;");
+        builder.AppendLine();
+        builder.AppendLine("        for (var index = behaviors.Count - 1; index >= 0; index--)");
+        builder.AppendLine("        {");
+        builder.AppendLine("            next = new CommandBehaviorInvocation<TRequest>(");
+        builder.AppendLine("                request,");
+        builder.AppendLine("                cancellationToken,");
+        builder.AppendLine("                behaviors[index],");
+        builder.AppendLine("                next).Invoke;");
+        builder.AppendLine("        }");
+        builder.AppendLine();
+        builder.AppendLine("        return next();");
+        builder.AppendLine("    }");
+        builder.AppendLine();
+        builder.AppendLine(
+            "    private static IAsyncEnumerable<TResponse> ExecuteStreamPipeline<TRequest, TResponse>(");
+        builder.AppendLine("        TRequest request,");
+        builder.AppendLine("        CancellationToken cancellationToken,");
+        builder.AppendLine("        IStreamRequestHandler<TRequest, TResponse> handler,");
+        builder.AppendLine("        IReadOnlyList<IStreamPipelineBehavior<TRequest, TResponse>> behaviors)");
+        builder.AppendLine("        where TRequest : IStreamRequest<TResponse>");
+        builder.AppendLine("    {");
+        builder.AppendLine("        if (behaviors.Count == 0)");
+        builder.AppendLine("        {");
+        builder.AppendLine("            return handler.Handle(request, cancellationToken);");
+        builder.AppendLine("        }");
+        builder.AppendLine();
+        builder.AppendLine("        StreamHandlerDelegate<TResponse> next =");
+        builder.AppendLine(
+            "            new StreamHandlerInvocation<TRequest, TResponse>(request, cancellationToken, handler).Invoke;");
+        builder.AppendLine();
+        builder.AppendLine("        for (var index = behaviors.Count - 1; index >= 0; index--)");
+        builder.AppendLine("        {");
+        builder.AppendLine("            next = new StreamBehaviorInvocation<TRequest, TResponse>(");
         builder.AppendLine("                request,");
         builder.AppendLine("                cancellationToken,");
         builder.AppendLine("                behaviors[index],");
@@ -314,6 +578,59 @@ public sealed class MediatorGenerator : IIncrementalGenerator
         builder.AppendLine("        }");
         builder.AppendLine("    }");
         builder.AppendLine();
+        builder.AppendLine("    private sealed class CommandHandlerInvocation<TRequest>(");
+        builder.AppendLine("        TRequest request,");
+        builder.AppendLine("        CancellationToken cancellationToken,");
+        builder.AppendLine("        IRequestHandler<TRequest> handler)");
+        builder.AppendLine("        where TRequest : IRequest");
+        builder.AppendLine("    {");
+        builder.AppendLine("        public Task Invoke()");
+        builder.AppendLine("        {");
+        builder.AppendLine("            return handler.Handle(request, cancellationToken);");
+        builder.AppendLine("        }");
+        builder.AppendLine("    }");
+        builder.AppendLine();
+        builder.AppendLine("    private sealed class CommandBehaviorInvocation<TRequest>(");
+        builder.AppendLine("        TRequest request,");
+        builder.AppendLine("        CancellationToken cancellationToken,");
+        builder.AppendLine("        IPipelineBehavior<TRequest> behavior,");
+        builder.AppendLine("        RequestHandlerDelegate next)");
+        builder.AppendLine("        where TRequest : IRequest");
+        builder.AppendLine("    {");
+        builder.AppendLine("        public Task Invoke()");
+        builder.AppendLine("        {");
+        builder.AppendLine("            return behavior.Handle(request, cancellationToken, next);");
+        builder.AppendLine("        }");
+        builder.AppendLine("    }");
+        builder.AppendLine();
+        builder.AppendLine("    private sealed class StreamHandlerInvocation<TRequest, TResponse>(");
+        builder.AppendLine("        TRequest request,");
+        builder.AppendLine("        CancellationToken cancellationToken,");
+        builder.AppendLine("        IStreamRequestHandler<TRequest, TResponse> handler)");
+        builder.AppendLine("        where TRequest : IStreamRequest<TResponse>");
+        builder.AppendLine("    {");
+        builder.AppendLine("        public IAsyncEnumerable<TResponse> Invoke()");
+        builder.AppendLine("        {");
+        builder.AppendLine("            return handler.Handle(request, cancellationToken);");
+        builder.AppendLine("        }");
+        builder.AppendLine("    }");
+        builder.AppendLine();
+        builder.AppendLine("    private sealed class StreamBehaviorInvocation<TRequest, TResponse>(");
+        builder.AppendLine("        TRequest request,");
+        builder.AppendLine("        CancellationToken cancellationToken,");
+        builder.AppendLine("        IStreamPipelineBehavior<TRequest, TResponse> behavior,");
+        builder.AppendLine("        StreamHandlerDelegate<TResponse> next)");
+        builder.AppendLine("        where TRequest : IStreamRequest<TResponse>");
+        builder.AppendLine("    {");
+        builder.AppendLine("        public IAsyncEnumerable<TResponse> Invoke()");
+        builder.AppendLine("        {");
+        builder.AppendLine("            return behavior.Handle(request, cancellationToken, next);");
+        builder.AppendLine("        }");
+        builder.AppendLine("    }");
+    }
+
+    private static void RenderResolverHelpers(StringBuilder builder)
+    {
         builder.AppendLine("    private static T GetRequiredService<T>(IServiceProvider provider)");
         builder.AppendLine("        where T : notnull");
         builder.AppendLine("    {");
@@ -340,14 +657,16 @@ public sealed class MediatorGenerator : IIncrementalGenerator
         builder.AppendLine("                    return typed;");
         builder.AppendLine("                }");
         builder.AppendLine();
-        builder.AppendLine("                throw new InvalidOperationException($\"Service of type '{typeof(T)}' is not registered.\");");
+        builder.AppendLine(
+            "                throw new InvalidOperationException($\"Service of type '{typeof(T)}' is not registered.\");");
         builder.AppendLine("            };");
         builder.AppendLine("        }");
         builder.AppendLine("    }");
         builder.AppendLine();
         builder.AppendLine("    private static class ServicesCache<T>");
         builder.AppendLine("    {");
-        builder.AppendLine("        public static readonly Func<IServiceProvider, IReadOnlyList<T>> Resolve = CreateResolver();");
+        builder.AppendLine(
+            "        public static readonly Func<IServiceProvider, IReadOnlyList<T>> Resolve = CreateResolver();");
         builder.AppendLine();
         builder.AppendLine("        private static Func<IServiceProvider, IReadOnlyList<T>> CreateResolver()");
         builder.AppendLine("        {");
@@ -366,17 +685,21 @@ public sealed class MediatorGenerator : IIncrementalGenerator
         builder.AppendLine("            };");
         builder.AppendLine("        }");
         builder.AppendLine("    }");
-
-        builder.AppendLine("}");
-
-        return builder.ToString();
     }
 
     private sealed record GenerationModel(
         ImmutableArray<RequestModel> Requests,
+        ImmutableArray<CommandModel> Commands,
+        ImmutableArray<StreamRequestModel> Streams,
         ImmutableArray<NotificationModel> Notifications);
 
     private sealed record RequestModel(
+        string RequestType,
+        string ResponseType);
+
+    private sealed record CommandModel(string RequestType);
+
+    private sealed record StreamRequestModel(
         string RequestType,
         string ResponseType);
 
