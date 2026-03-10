@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Vortex.Mediator</AssemblyName>
+    <RootNamespace>Vortex.Mediator</RootNamespace>
+    <PackageId>Vortex.Mediator</PackageId>
+    <Description>Source-generated mediator runtime for Vortex.</Description>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Vortex.Mediator.Abstractions/Vortex.Mediator.Abstractions.csproj" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Analyzer Include="../Vortex.Mediator.SourceGenerator/bin/$(Configuration)/net9.0/Vortex.Mediator.SourceGenerator.dll" />
+    <None Include="../Vortex.Mediator.SourceGenerator/bin/$(Configuration)/net9.0/Vortex.Mediator.SourceGenerator.dll"
+          Pack="true"
+          PackagePath="analyzers/dotnet/cs" />
+  </ItemGroup>
+
+  <Target Name="BuildMediatorSourceGenerator" BeforeTargets="CoreCompile;Pack">
+    <MSBuild Projects="../Vortex.Mediator.SourceGenerator/Vortex.Mediator.SourceGenerator.csproj"
+             Targets="Build"
+             Properties="Configuration=$(Configuration)" />
+  </Target>
+</Project>

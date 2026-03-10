@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Vortex.Mediator.Abstractions</AssemblyName>
+    <RootNamespace>Vortex.Mediator.Abstractions</RootNamespace>
+    <PackageId>Vortex.Mediator.Abstractions</PackageId>
+    <Description>Public contracts for the Vortex mediator infrastructure.</Description>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+</Project>
