@@ -2,11 +2,18 @@ using Vortex.Mediator.Abstractions;
 
 namespace Vortex.Mediator;
 
+/// <summary>
+/// Default mediator implementation backed by generated dispatch bindings.
+/// </summary>
 public sealed class Mediator : IMediator
 {
     private readonly IServiceProvider _provider;
     private static readonly Lazy<IReadOnlyList<IMediatorBinding>> Bindings = new(LoadBindings);
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Mediator"/> class.
+    /// </summary>
+    /// <param name="provider">The service provider used to resolve handlers and behaviors.</param>
     public Mediator(IServiceProvider provider)
     {
         _provider = provider;
