@@ -2,8 +2,21 @@ using Vortex.Mediator.Abstractions;
 
 namespace Vortex.Mediator.Internal;
 
+/// <summary>
+/// Executes mediator handler pipelines for requests, commands, and streams.
+/// </summary>
 public static class PipelineExecutor
 {
+    /// <summary>
+    /// Executes a request/response handler with its registered pipeline behaviors.
+    /// </summary>
+    /// <typeparam name="TRequest">The request type.</typeparam>
+    /// <typeparam name="TResponse">The response type.</typeparam>
+    /// <param name="request">The request instance to execute.</param>
+    /// <param name="cancellationToken">The cancellation token for the current operation.</param>
+    /// <param name="handler">The request handler.</param>
+    /// <param name="provider">The service provider used to resolve behaviors.</param>
+    /// <returns>A task that completes with the handler response.</returns>
     public static Task<TResponse> Execute<TRequest, TResponse>(TRequest request, CancellationToken cancellationToken,
         IRequestHandler<TRequest, TResponse> handler, IServiceProvider provider) where TRequest : IRequest<TResponse>
     {
@@ -29,6 +42,15 @@ public static class PipelineExecutor
         return next();
     }
 
+    /// <summary>
+    /// Executes a command handler with its registered pipeline behaviors.
+    /// </summary>
+    /// <typeparam name="TRequest">The command type.</typeparam>
+    /// <param name="request">The command instance to execute.</param>
+    /// <param name="cancellationToken">The cancellation token for the current operation.</param>
+    /// <param name="handler">The command handler.</param>
+    /// <param name="provider">The service provider used to resolve behaviors.</param>
+    /// <returns>A task that completes when the command has been handled.</returns>
     public static Task Execute<TRequest>(TRequest request, CancellationToken cancellationToken,
         IRequestHandler<TRequest> handler, IServiceProvider provider) where TRequest : IRequest
     {
@@ -54,6 +76,16 @@ public static class PipelineExecutor
         return next();
     }
 
+    /// <summary>
+    /// Executes a stream handler with its registered stream pipeline behaviors.
+    /// </summary>
+    /// <typeparam name="TRequest">The stream request type.</typeparam>
+    /// <typeparam name="TResponse">The stream element type.</typeparam>
+    /// <param name="request">The stream request instance to execute.</param>
+    /// <param name="cancellationToken">The cancellation token for the current operation.</param>
+    /// <param name="handler">The stream handler.</param>
+    /// <param name="provider">The service provider used to resolve behaviors.</param>
+    /// <returns>The resulting asynchronous stream.</returns>
     public static IAsyncEnumerable<TResponse> ExecuteStream<TRequest, TResponse>(
         TRequest request,
         CancellationToken cancellationToken,

@@ -19,18 +19,21 @@ public sealed class Mediator : IMediator
         _provider = provider;
     }
 
+    /// <inheritdoc />
     public Task<TResponse> Send<TResponse>(IRequest<TResponse> request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         return DispatchResponse(request, cancellationToken);
     }
 
+    /// <inheritdoc />
     public Task Send(IRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         return Dispatch(request, cancellationToken);
     }
 
+    /// <inheritdoc />
     public IAsyncEnumerable<TResponse> CreateStream<TResponse>(
         IStreamRequest<TResponse> request,
         CancellationToken cancellationToken = default)
@@ -39,6 +42,7 @@ public sealed class Mediator : IMediator
         return DispatchStream(request, cancellationToken);
     }
 
+    /// <inheritdoc />
     public Task Publish(INotification notification, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(notification);
