@@ -44,7 +44,7 @@ public sealed class ServiceProviderResolverTests
 
         Assert.That(services, Is.Empty);
     }
-    
+
     [Test]
     public void GetServicesThrowsWhenProviderIsNull()
     {
