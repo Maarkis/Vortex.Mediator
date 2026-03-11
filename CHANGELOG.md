@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/Maarkis/Vortex.Mediator/compare/vortex-mediator-v1.1.0...vortex-mediator-v1.1.1) (2026-03-11)
+
+
+### Bug Fixes
+
+* quote contributor workflow PR metadata ([8294975](https://github.com/Maarkis/Vortex.Mediator/commit/82949754e199c584c46a83690be11fa52dfc9563))
+
 ## [1.1.0](https://github.com/Maarkis/Vortex.Mediator/compare/vortex-mediator-v1.0.0...vortex-mediator-v1.1.0) (2026-03-11)
 
 
