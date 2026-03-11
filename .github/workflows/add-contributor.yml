@@ -57,8 +57,8 @@ jobs:
         id: contributor_pr
         uses: peter-evans/create-pull-request@v7
         with:
-          commit-message: docs: add contributor entry for #${{ github.event.pull_request.number }}
-          title: docs: add contributor entry for #${{ github.event.pull_request.number }}
+          commit-message: "docs: add contributor entry for #${{ github.event.pull_request.number }}"
+          title: "docs: add contributor entry for #${{ github.event.pull_request.number }}"
           body: |
             Automatic contributor update after merged pull request #${{ github.event.pull_request.number }}.
           branch: chore/add-contributor-${{ github.event.pull_request.number }}
