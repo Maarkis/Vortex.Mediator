@@ -77,7 +77,7 @@ Suggested flow:
 4. run build and test locally
 5. open the pull request with a clear description
 
-Contributors with merged pull requests are added automatically to [CONTRIBUTORS.md](./CONTRIBUTORS.md).
+Contributors with merged pull requests are added automatically to [CONTRIBUTORS.md](./CONTRIBUTORS.md) through an automated pull request with auto-merge enabled.
 
 ## Commit Style
 
@@ -106,6 +106,12 @@ Required GitHub secret:
 Optional GitHub secret:
 
 - `RELEASE_PLEASE_TOKEN`: personal access token if you want GitHub Actions to run on Release Please PRs and tags created by the bot
+
+Required GitHub repository settings:
+
+- GitHub Actions workflow permissions must be set to `Read and write`
+- GitHub Actions must be allowed to create pull requests
+- repository auto-merge must be enabled if you want contributor update PRs to merge automatically
 
 Manual publish validation:
 

@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   add-contributor:
@@ -34,6 +35,7 @@ jobs:
 
       - name: Add contributor to CONTRIBUTORS.md
         if: steps.contributor.outputs.skip == 'false'
+        id: contributors_file
         env:
           CONTRIBUTOR_LOGIN: ${{ steps.contributor.outputs.login }}
         run: |
@@ -43,21 +45,28 @@ jobs:
 
           if grep -Eiq "$login_pattern" CONTRIBUTORS.md || grep -Eiq "$url_pattern" CONTRIBUTORS.md; then
             echo "Contributor already listed."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           printf '%s\n' "$contributor_line" >> CONTRIBUTORS.md
+          echo "changed=true" >> "$GITHUB_OUTPUT"
 
-      - name: Commit contributor update
-        if: steps.contributor.outputs.skip == 'false'
-        run: |
-          if git diff --quiet -- CONTRIBUTORS.md; then
-            echo "No contributor update needed."
-            exit 0
-          fi
+      - name: Create contributor update pull request
+        if: steps.contributor.outputs.skip == 'false' && steps.contributors_file.outputs.changed == 'true'
+        id: contributor_pr
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: docs: add contributor entry for #${{ github.event.pull_request.number }}
+          title: docs: add contributor entry for #${{ github.event.pull_request.number }}
+          body: |
+            Automatic contributor update after merged pull request #${{ github.event.pull_request.number }}.
+          branch: chore/add-contributor-${{ github.event.pull_request.number }}
+          base: main
+          delete-branch: true
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add CONTRIBUTORS.md
-          git commit -m "docs: add contributor entry for #${{ github.event.pull_request.number }}"
-          git push
+      - name: Enable auto-merge for contributor PR
+        if: steps.contributor_pr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr merge --auto --squash "${{ steps.contributor_pr.outputs.pull-request-number }}"
