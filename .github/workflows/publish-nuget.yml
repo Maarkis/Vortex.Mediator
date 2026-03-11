@@ -1,0 +1,62 @@
+name: Publish NuGet
+
+on:
+  workflow_call:
+    inputs:
+      release-tag:
+        required: true
+        type: string
+      package-version:
+        required: true
+        type: string
+    secrets:
+      NUGET_API_KEY:
+        required: true
+  workflow_dispatch:
+    inputs:
+      release-tag:
+        description: Git tag to publish from
+        required: true
+        type: string
+      package-version:
+        description: NuGet package version
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.release-tag }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore Vortex.sln
+
+      - name: Build
+        run: dotnet build Vortex.sln --configuration Release --no-restore
+
+      - name: Pack abstractions
+        run: dotnet pack src/Vortex.Mediator.Abstractions/Vortex.Mediator.Abstractions.csproj --configuration Release --no-build -p:Version=${{ inputs.package-version }} -o artifacts/packages
+
+      - name: Pack runtime
+        run: dotnet pack src/Vortex.Mediator/Vortex.Mediator.csproj --configuration Release --no-restore -p:Version=${{ inputs.package-version }} -o artifacts/packages
+
+      - name: Push packages
+        run: dotnet nuget push "artifacts/packages/*.nupkg" --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+      - name: Upload packages to GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ inputs.release-tag }}" artifacts/packages/*.nupkg --clobber

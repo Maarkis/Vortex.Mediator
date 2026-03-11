@@ -18,6 +18,7 @@ You can contribute with:
 Requirements:
 
 - .NET SDK 10
+- semantic commits following Conventional Commits
 
 Build:
 
@@ -84,6 +85,24 @@ This repository uses semantic commits when possible, for example:
 - `fix: avoid duplicate notification dispatch`
 - `docs: add package usage guide`
 - `test: cover stream edge cases`
+
+Breaking changes must use the Conventional Commits `!` marker or a `BREAKING CHANGE:` footer.
+
+## Release Flow
+
+- pull requests must use a Conventional Commits title such as `feat: add async pipeline support`
+- `ci.yml` validates format, build and tests on pull requests and pushes to `main`
+- `release.yml` runs on merges to `main` and uses Release Please to open or update the release PR
+- when Release Please creates a GitHub release, the same workflow calls `publish-nuget.yml`
+- `publish-nuget.yml` packs `Vortex.Mediator.Abstractions` and `Vortex.Mediator` and pushes them to NuGet
+
+Required GitHub secret:
+
+- `NUGET_API_KEY`: API key with permission to publish both NuGet packages
+
+Optional GitHub secret:
+
+- `RELEASE_PLEASE_TOKEN`: personal access token if you want GitHub Actions to run on Release Please PRs and tags created by the bot
 
 ## Licensing
 

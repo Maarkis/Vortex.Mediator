@@ -5,7 +5,11 @@
     <Nullable>enable</Nullable>
     <Authors>Maarkis</Authors>
     <Company>Vortex</Company>
-    <Version>0.4.0</Version>
+    <Version>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)version.txt').Trim())</Version>
+    <RepositoryUrl>https://github.com/Maarkis/Vortex.Mediator</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/Maarkis/Vortex.Mediator</PackageProjectUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <PackageOutputPath>$(MSBuildThisFileDirectory)artifacts/packages</PackageOutputPath>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
   </PropertyGroup>

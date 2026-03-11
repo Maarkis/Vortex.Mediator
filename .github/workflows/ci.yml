@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  semantic-pr-title:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate PR title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([^)]+\))?(!)?: .+$'
+          if [[ ! "$PR_TITLE" =~ $pattern ]]; then
+            echo "PR title must follow Conventional Commits."
+            echo "Example: feat: add async pipeline support"
+            exit 1
+          fi
+
+  build-test:
+    needs: semantic-pr-title
+    if: always() && (github.event_name != 'pull_request' || needs.semantic-pr-title.result == 'success')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore Vortex.sln
+
+      - name: Format
+        run: dotnet format Vortex.sln --verify-no-changes --no-restore
+
+      - name: Build
+        run: dotnet build Vortex.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test Vortex.sln --configuration Release --no-build
