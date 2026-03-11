@@ -29,12 +29,28 @@ public sealed class ServiceProviderResolverTests
     }
 
     [Test]
+    public void GetRequiredServiceThrowsWhenProviderIsNull()
+    {
+        var act = () => ServiceProviderResolver.GetRequiredService<SampleService>(null!);
+
+        Assert.That(act, Throws.ArgumentNullException);
+    }
+
+    [Test]
     public void GetServicesReturnsEmptyCollectionWhenThereAreNoServices()
     {
         using var provider = new ServiceCollection().BuildServiceProvider();
         var services = ServiceProviderResolver.GetServices<SampleService>(provider);
 
         Assert.That(services, Is.Empty);
+    }
+    
+    [Test]
+    public void GetServicesThrowsWhenProviderIsNull()
+    {
+        var act = () => ServiceProviderResolver.GetServices<SampleService>(null!);
+
+        Assert.That(act, Throws.ArgumentNullException);
     }
 
     [Test]

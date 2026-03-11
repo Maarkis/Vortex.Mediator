@@ -14,6 +14,7 @@ public static class ServiceProviderResolver
     /// <exception cref="InvalidOperationException">Thrown when the service is not registered.</exception>
     public static T GetRequiredService<T>(IServiceProvider provider) where T : notnull
     {
+        ArgumentNullException.ThrowIfNull(provider);
         return RequiredServiceCache<T>.Resolve(provider);
     }
 
@@ -25,6 +26,7 @@ public static class ServiceProviderResolver
     /// <returns>A read-only list containing the resolved services, or an empty list when none are registered.</returns>
     public static IReadOnlyList<T> GetServices<T>(IServiceProvider provider)
     {
+        ArgumentNullException.ThrowIfNull(provider);
         return ServicesCache<T>.Resolve(provider);
     }
 
