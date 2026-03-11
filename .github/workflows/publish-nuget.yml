@@ -9,6 +9,10 @@ on:
       package-version:
         required: true
         type: string
+      dry-run:
+        required: false
+        type: boolean
+        default: false
     secrets:
       NUGET_API_KEY:
         required: true
@@ -22,6 +26,11 @@ on:
         description: NuGet package version
         required: true
         type: string
+      dry-run:
+        description: Pack without publishing to NuGet
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: write
@@ -54,9 +63,18 @@ jobs:
         run: dotnet pack src/Vortex.Mediator/Vortex.Mediator.csproj --configuration Release --no-restore -p:Version=${{ inputs.package-version }} -o artifacts/packages
 
       - name: Push packages
+        if: ${{ !inputs.dry-run }}
         run: dotnet nuget push "artifacts/packages/*.nupkg" --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
 
       - name: Upload packages to GitHub release
+        if: ${{ !inputs.dry-run }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "${{ inputs.release-tag }}" artifacts/packages/*.nupkg --clobber
+
+      - name: Upload packages as workflow artifact
+        if: ${{ inputs.dry-run }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages-${{ inputs.package-version }}
+          path: artifacts/packages/*.nupkg

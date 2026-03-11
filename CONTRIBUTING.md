@@ -95,6 +95,7 @@ Breaking changes must use the Conventional Commits `!` marker or a `BREAKING CHA
 - `release.yml` runs on merges to `main` and uses Release Please to open or update the release PR
 - when Release Please creates a GitHub release, the same workflow calls `publish-nuget.yml`
 - `publish-nuget.yml` packs `Vortex.Mediator.Abstractions` and `Vortex.Mediator` and pushes them to NuGet
+- `publish-nuget.yml` also supports manual `dry-run` execution to validate package generation without publishing
 
 Required GitHub secret:
 
@@ -103,6 +104,13 @@ Required GitHub secret:
 Optional GitHub secret:
 
 - `RELEASE_PLEASE_TOKEN`: personal access token if you want GitHub Actions to run on Release Please PRs and tags created by the bot
+
+Manual publish validation:
+
+1. open GitHub Actions
+2. run `Publish NuGet`
+3. provide `release-tag` and `package-version`
+4. keep `dry-run = true` to upload `.nupkg` files as workflow artifacts instead of publishing to NuGet
 
 ## Licensing
 
