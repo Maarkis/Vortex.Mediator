@@ -28,6 +28,21 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
+      - name: Enable auto-merge for release PR
+        if: steps.release.outputs.pr != ''
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN != '' && secrets.RELEASE_PLEASE_TOKEN || github.token }}
+          RELEASE_PLEASE_PR: ${{ steps.release.outputs.pr }}
+        run: |
+          pr_number="$(printf '%s' "$RELEASE_PLEASE_PR" | jq -r '.number // empty')"
+
+          if [[ -z "$pr_number" ]]; then
+            echo "No release PR number returned by Release Please."
+            exit 0
+          fi
+
+          gh pr merge --auto --squash "$pr_number"
+
   publish:
     needs: release
     if: needs.release.outputs.release_created == 'true'

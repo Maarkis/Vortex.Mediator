@@ -94,7 +94,7 @@ Breaking changes must use the Conventional Commits `!` marker or a `BREAKING CHA
 
 - pull requests must use a Conventional Commits title such as `feat: add async pipeline support`
 - `ci.yml` validates format, build and tests on pull requests and pushes to `main`
-- `release.yml` runs on merges to `main` and uses Release Please to open or update the release PR
+- `release.yml` runs on merges to `main`, uses Release Please to open or update the release PR, and enables auto-merge for that PR
 - when Release Please creates a GitHub release, the same workflow calls `publish-nuget.yml`
 - `publish-nuget.yml` packs `Vortex.Mediator.Abstractions` and `Vortex.Mediator` and pushes them to NuGet
 - `publish-nuget.yml` also supports manual `dry-run` execution to validate package generation without publishing
@@ -111,7 +111,7 @@ Required GitHub repository settings:
 
 - GitHub Actions workflow permissions must be set to `Read and write`
 - GitHub Actions must be allowed to create pull requests
-- repository auto-merge must be enabled if you want contributor update PRs to merge automatically
+- repository auto-merge must be enabled if you want contributor update PRs and release PRs to merge automatically
 
 Manual publish validation:
 
