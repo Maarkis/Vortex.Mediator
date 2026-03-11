@@ -1,0 +1,63 @@
+name: Add Contributor
+
+on:
+  pull_request_target:
+    types:
+      - closed
+
+permissions:
+  contents: write
+
+jobs:
+  add-contributor:
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Skip bots
+        id: contributor
+        env:
+          AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}
+        run: |
+          if [[ "$AUTHOR_LOGIN" == *"[bot]" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "login=$AUTHOR_LOGIN" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout main
+        if: steps.contributor.outputs.skip == 'false'
+        uses: actions/checkout@v5
+        with:
+          ref: main
+
+      - name: Add contributor to CONTRIBUTORS.md
+        if: steps.contributor.outputs.skip == 'false'
+        env:
+          CONTRIBUTOR_LOGIN: ${{ steps.contributor.outputs.login }}
+        run: |
+          contributor_line="- [@${CONTRIBUTOR_LOGIN}](https://github.com/${CONTRIBUTOR_LOGIN})"
+          login_pattern="(^|[^[:alnum:]_-])@${CONTRIBUTOR_LOGIN}([^[:alnum:]_-]|$)"
+          url_pattern="https://github.com/${CONTRIBUTOR_LOGIN}(/)?"
+
+          if grep -Eiq "$login_pattern" CONTRIBUTORS.md || grep -Eiq "$url_pattern" CONTRIBUTORS.md; then
+            echo "Contributor already listed."
+            exit 0
+          fi
+
+          printf '%s\n' "$contributor_line" >> CONTRIBUTORS.md
+
+      - name: Commit contributor update
+        if: steps.contributor.outputs.skip == 'false'
+        run: |
+          if git diff --quiet -- CONTRIBUTORS.md; then
+            echo "No contributor update needed."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CONTRIBUTORS.md
+          git commit -m "docs: add contributor entry for #${{ github.event.pull_request.number }}"
+          git push

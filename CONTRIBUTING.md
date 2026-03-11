@@ -77,6 +77,8 @@ Suggested flow:
 4. run build and test locally
 5. open the pull request with a clear description
 
+Contributors with merged pull requests are added automatically to [CONTRIBUTORS.md](./CONTRIBUTORS.md).
+
 ## Commit Style
 
 This repository uses semantic commits when possible, for example:
