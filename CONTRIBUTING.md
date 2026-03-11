@@ -25,6 +25,25 @@ Build:
 dotnet build Vortex.sln -c Release -m:1 -v minimal
 ```
 
+Optional native Git hook:
+
+```bash
+./scripts/setup-hooks.sh
+```
+
+On Windows PowerShell:
+
+```powershell
+./scripts/setup-hooks.ps1
+```
+
+With that enabled, `pre-commit` runs:
+
+```bash
+dotnet format Vortex.sln --verify-no-changes
+dotnet build Vortex.sln
+```
+
 Run tests:
 
 ```bash
